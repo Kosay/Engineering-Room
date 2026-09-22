@@ -1,0 +1,193 @@
+{
+  "entities": {
+    "Organization": {
+      "title": "Organization",
+      "description": "Top-level enterprise tenant for engineering investigations",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique organization identifier" },
+        "name": { "type": "string", "description": "Organization display name" },
+        "ownerId": { "type": "string", "description": "UID of organization owner" },
+        "createdAt": { "type": "string", "description": "Creation timestamp ISO string" }
+      },
+      "required": ["id", "name", "ownerId", "createdAt"]
+    },
+    "EngineeringRoom": {
+      "title": "Engineering Room",
+      "description": "Collaborative technical room centered around a specific project or sub-system",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique room ID" },
+        "organizationId": { "type": "string", "description": "Parent organization identifier" },
+        "name": { "type": "string", "description": "Room name" },
+        "description": { "type": "string", "description": "Room scope and description" },
+        "projectTarget": { "type": "string", "description": "Target technology stack or framework" },
+        "activeInvestigationId": { "type": "string", "description": "Currently active investigation ID" },
+        "createdAt": { "type": "string", "description": "Creation timestamp ISO string" },
+        "updatedAt": { "type": "string", "description": "Last updated timestamp ISO string" }
+      },
+      "required": ["id", "organizationId", "name", "projectTarget", "createdAt", "updatedAt"]
+    },
+    "Investigation": {
+      "title": "Investigation",
+      "description": "A single rigorous technical question undergoing epistemic verification",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique investigation ID" },
+        "organizationId": { "type": "string", "description": "Parent organization ID" },
+        "roomId": { "type": "string", "description": "Parent room ID" },
+        "title": { "type": "string", "description": "Short summary title of the inquiry" },
+        "question": { "type": "string", "description": "Falsifiable primary engineering question" },
+        "status": { "type": "string", "enum": ["active", "concluded", "archived"] },
+        "phase": { "type": "string", "enum": ["question", "claims", "evidence", "experiments", "reconciliation", "decision"] },
+        "priority": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+        "environment": { "type": "string", "description": "Exact OS, framework, and runtime environment specifications" },
+        "participatingAgents": { "type": "array", "description": "List of active AI and human roles" },
+        "createdAt": { "type": "string", "description": "Creation ISO timestamp" },
+        "updatedAt": { "type": "string", "description": "Updated ISO timestamp" }
+      },
+      "required": ["id", "organizationId", "roomId", "title", "question", "status", "phase", "priority", "environment", "createdAt", "updatedAt"]
+    },
+    "Claim": {
+      "title": "Claim",
+      "description": "Falsifiable technical assertion or architectural hypothesis",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique claim ID" },
+        "organizationId": { "type": "string", "description": "Parent organization ID" },
+        "roomId": { "type": "string", "description": "Parent room ID" },
+        "investigationId": { "type": "string", "description": "Parent investigation ID" },
+        "statement": { "type": "string", "description": "Exact factual technical assertion" },
+        "status": { "type": "string", "enum": ["verified", "supported", "unverified", "disputed", "disproved", "unknown"] },
+        "importance": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+        "createdBy": { "type": "object", "description": "Author identity" },
+        "arguments": { "type": "array", "description": "List of pro and con arguments" },
+        "challenges": { "type": "array", "description": "Adversarial challenges" },
+        "relatedEvidenceIds": { "type": "array", "description": "IDs of supporting/opposing evidence" },
+        "relatedExperimentIds": { "type": "array", "description": "IDs of empirical tests" },
+        "createdAt": { "type": "string", "description": "Creation ISO timestamp" },
+        "updatedAt": { "type": "string", "description": "Updated ISO timestamp" }
+      },
+      "required": ["id", "organizationId", "roomId", "investigationId", "statement", "status", "importance", "createdBy", "createdAt", "updatedAt"]
+    },
+    "Evidence": {
+      "title": "Evidence",
+      "description": "External authoritative documentation, source code excerpts, or issue tracker references",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Evidence ID" },
+        "organizationId": { "type": "string", "description": "Parent org ID" },
+        "roomId": { "type": "string", "description": "Parent room ID" },
+        "investigationId": { "type": "string", "description": "Parent investigation ID" },
+        "type": { "type": "string", "enum": ["official_documentation", "source_code_reference", "issue_tracker", "reproducible_test", "benchmark", "decompiled_il", "other"] },
+        "title": { "type": "string", "description": "Evidence title" },
+        "sourceUrl": { "type": "string", "description": "Reference URL" },
+        "sourceType": { "type": "string", "description": "Source publisher or repository" },
+        "excerpt": { "type": "string", "description": "Direct quote or verbatim code block" },
+        "reliability": { "type": "string", "enum": ["high", "medium", "low"] },
+        "relatedClaimIds": { "type": "array", "description": "Linked claims" },
+        "collectedBy": { "type": "object", "description": "Researcher metadata" },
+        "timestamp": { "type": "string", "description": "Collection timestamp" }
+      },
+      "required": ["id", "organizationId", "roomId", "investigationId", "type", "title", "excerpt", "reliability", "collectedBy", "timestamp"]
+    },
+    "Experiment": {
+      "title": "Experiment",
+      "description": "Deterministic empirical probe, unit test, benchmark, or reproduction script",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Experiment ID" },
+        "organizationId": { "type": "string", "description": "Parent org ID" },
+        "roomId": { "type": "string", "description": "Parent room ID" },
+        "investigationId": { "type": "string", "description": "Parent investigation ID" },
+        "title": { "type": "string", "description": "Test name" },
+        "objective": { "type": "string", "description": "What this test confirms or falsifies" },
+        "status": { "type": "string", "enum": ["planned", "running", "completed", "failed_to_run"] },
+        "environment": { "type": "string", "description": "Execution environment specs" },
+        "commandOrProcedure": { "type": "string", "description": "Reproducible command or code snippet" },
+        "expectedResult": { "type": "string", "description": "Falsification threshold" },
+        "actualResult": { "type": "string", "description": "Observed execution output" },
+        "outcome": { "type": "string", "enum": ["passed", "failed", "inconclusive", "pending"] },
+        "relatedClaimIds": { "type": "array", "description": "Tested claim IDs" },
+        "artifacts": { "type": "array", "description": "Attached logs, traces, or dumps" },
+        "executedBy": { "type": "string", "description": "Engineer or runner" },
+        "executionTimestamp": { "type": "string", "description": "Execution timestamp" },
+        "createdAt": { "type": "string", "description": "Created timestamp" },
+        "updatedAt": { "type": "string", "description": "Updated timestamp" }
+      },
+      "required": ["id", "organizationId", "roomId", "investigationId", "title", "objective", "status", "environment", "commandOrProcedure", "expectedResult", "outcome", "createdAt", "updatedAt"]
+    },
+    "Decision": {
+      "title": "Decision",
+      "description": "Architectural or implementation sign-off rooted in verified evidence",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Decision ID" },
+        "organizationId": { "type": "string", "description": "Parent org ID" },
+        "roomId": { "type": "string", "description": "Parent room ID" },
+        "investigationId": { "type": "string", "description": "Parent investigation ID" },
+        "title": { "type": "string", "description": "Architecture Decision Record title" },
+        "status": { "type": "string", "enum": ["proposed", "accepted", "rejected", "superseded"] },
+        "summary": { "type": "string", "description": "Executive summary of chosen direction" },
+        "selectedOption": { "type": "string", "description": "Chosen engineering path" },
+        "rationale": { "type": "string", "description": "Technical justification" },
+        "supportedClaimIds": { "type": "array", "description": "Claims supporting this ADR" },
+        "contestedClaimIds": { "type": "array", "description": "Claims refuted by this ADR" },
+        "humanSignOff": { "type": "object", "description": "Approving engineer credentials" },
+        "createdAt": { "type": "string", "description": "Created timestamp" },
+        "updatedAt": { "type": "string", "description": "Updated timestamp" }
+      },
+      "required": ["id", "organizationId", "roomId", "investigationId", "title", "status", "summary", "selectedOption", "rationale", "createdAt", "updatedAt"]
+    },
+    "InvestigationMessage": {
+      "title": "Investigation Message",
+      "description": "Real-time engineer and AI deliberative log entry",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Message ID" },
+        "organizationId": { "type": "string", "description": "Parent org ID" },
+        "roomId": { "type": "string", "description": "Parent room ID" },
+        "investigationId": { "type": "string", "description": "Parent investigation ID" },
+        "sender": { "type": "object", "description": "Sender identity and role" },
+        "content": { "type": "string", "description": "Message markdown content" },
+        "timestamp": { "type": "string", "description": "Sent timestamp" },
+        "associatedClaimIds": { "type": "array", "description": "Referenced claim IDs" }
+      },
+      "required": ["id", "organizationId", "roomId", "investigationId", "sender", "content", "timestamp"]
+    }
+  },
+  "firestore": {
+    "/organizations/{orgId}": {
+      "schema": "Organization",
+      "description": "Tenant enterprise organizations"
+    },
+    "/organizations/{orgId}/rooms/{roomId}": {
+      "schema": "EngineeringRoom",
+      "description": "Engineering project rooms"
+    },
+    "/organizations/{orgId}/rooms/{roomId}/investigations/{invId}": {
+      "schema": "Investigation",
+      "description": "Epistemic investigations"
+    },
+    "/organizations/{orgId}/rooms/{roomId}/investigations/{invId}/claims/{claimId}": {
+      "schema": "Claim",
+      "description": "Claims and hypotheses"
+    },
+    "/organizations/{orgId}/rooms/{roomId}/investigations/{invId}/evidence/{evidenceId}": {
+      "schema": "Evidence",
+      "description": "Citations and documentation"
+    },
+    "/organizations/{orgId}/rooms/{roomId}/investigations/{invId}/experiments/{expId}": {
+      "schema": "Experiment",
+      "description": "Deterministic tests and probes"
+    },
+    "/organizations/{orgId}/rooms/{roomId}/investigations/{invId}/decisions/{decId}": {
+      "schema": "Decision",
+      "description": "Architectural decisions and human sign-offs"
+    },
+    "/organizations/{orgId}/rooms/{roomId}/investigations/{invId}/messages/{msgId}": {
+      "schema": "InvestigationMessage",
+      "description": "Deliberation logs and chat messages"
+    }
+  }
+}

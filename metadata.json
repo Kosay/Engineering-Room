@@ -1,0 +1,6 @@
+{
+  "name": "KMH AI Engineering Room",
+  "description": "Rigorous engineering investigation workspace that distinguishes between hypotheses and verified engineering facts using Claims, Evidence, Experiments, Reconciliation, and Decisions.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
