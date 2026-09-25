@@ -33,6 +33,7 @@ import {
   InvestigationMessage,
   Organization,
 } from '../types';
+import { ClaimManager } from '../orchestrator/claim-manager';
 
 export enum OperationType {
   CREATE = 'create',
@@ -373,35 +374,39 @@ export class FirestoreService {
     }
   }
 
-  public static async updateClaim(
+  public static async reconcileClaimStatus(
     orgId: string,
     roomId: string,
     invId: string,
-    claimId: string,
-    updates: Partial<Claim>
-  ): Promise<void> {
+    claimId: string
+  ): Promise<Claim['status']> {
     const db = getFirebaseDb();
-    const claimPath = `organizations/${orgId}/rooms/${roomId}/investigations/${invId}/claims/${claimId}`;
-    const claimRef = doc(
-      db,
-      'organizations',
-      orgId,
-      'rooms',
-      roomId,
-      'investigations',
-      invId,
-      'claims',
-      claimId
-    );
+    const claimRef = doc(db, 'organizations', orgId, 'rooms', roomId, 'investigations', invId, 'claims', claimId);
     try {
+      const claimSnap = await getDoc(claimRef);
+      if (!claimSnap.exists()) throw new Error('Claim not found.');
+      const claim = { id: claimSnap.id, ...claimSnap.data() } as Claim;
+
+      const evidence = await getDocs(collection(db, 'organizations', orgId, 'rooms', roomId, 'investigations', invId, 'evidence'));
+      const experiments = await getDocs(collection(db, 'organizations', orgId, 'rooms', roomId, 'investigations', invId, 'experiments'));
+      const attachedEvidence = evidence.docs
+        .map((d) => ({ id: d.id, ...d.data() }) as Evidence)
+        .filter((e) => claim.relatedEvidenceIds.includes(e.id));
+      const attachedExperiments = experiments.docs
+        .map((d) => ({ id: d.id, ...d.data() }) as Experiment)
+        .filter((e) => claim.relatedExperimentIds.includes(e.id));
+
+      const evaluation = ClaimManager.evaluateStatus(claim, attachedEvidence, attachedExperiments);
       await updateDoc(claimRef, {
-        ...updates,
+        status: evaluation.recommendedStatus,
         updatedAt: new Date().toISOString(),
       });
+      return evaluation.recommendedStatus;
     } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, claimPath);
+      handleFirestoreError(err, OperationType.UPDATE, `organizations/${orgId}/rooms/${roomId}/investigations/${invId}/claims/${claimId}`);
     }
   }
+
 
   public static async addChallengeToClaim(
     orgId: string,
