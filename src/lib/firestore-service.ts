@@ -17,6 +17,7 @@ import {
   orderBy,
   where,
   serverTimestamp,
+  arrayUnion,
   getDocFromServer,
 } from 'firebase/firestore';
 import { getFirebaseDb, getFirebaseAuth } from './firebase';
@@ -425,15 +426,12 @@ export class FirestoreService {
     try {
       const snap = await getDoc(claimRef);
       if (!snap.exists()) return;
-      const current = snap.data() as Claim;
-      const challenges = current.challenges || [];
-      challenges.push({
-        id: `ch-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-        ...challenge,
-        timestamp: new Date().toISOString(),
-      });
       await updateDoc(claimRef, {
-        challenges,
+        challenges: arrayUnion({
+          id: `ch-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          ...challenge,
+          timestamp: new Date().toISOString(),
+        }),
         updatedAt: new Date().toISOString(),
       });
     } catch (err) {
@@ -465,14 +463,12 @@ export class FirestoreService {
       const snap = await getDoc(claimRef);
       if (!snap.exists()) return;
       const current = snap.data() as Claim;
-      const args = current.arguments || [];
-      args.push({
-        id: `arg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-        ...arg,
-        timestamp: new Date().toISOString(),
-      });
       await updateDoc(claimRef, {
-        arguments: args,
+        arguments: arrayUnion({
+          id: `arg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          ...arg,
+          timestamp: new Date().toISOString(),
+        }),
         updatedAt: new Date().toISOString(),
       });
     } catch (err) {
@@ -565,11 +561,10 @@ export class FirestoreService {
           );
           const claimSnap = await getDoc(claimRef);
           if (claimSnap.exists()) {
-            const currentClaim = claimSnap.data() as Claim;
-            const updatedEvIds = Array.from(
-              new Set([...(currentClaim.relatedEvidenceIds || []), evId])
-            );
-            await updateDoc(claimRef, { relatedEvidenceIds: updatedEvIds });
+            await updateDoc(claimRef, {
+              relatedEvidenceIds: arrayUnion(evId),
+              updatedAt: new Date().toISOString(),
+            });
           }
         }
       }
@@ -666,11 +661,10 @@ export class FirestoreService {
           );
           const claimSnap = await getDoc(claimRef);
           if (claimSnap.exists()) {
-            const currentClaim = claimSnap.data() as Claim;
-            const updatedExpIds = Array.from(
-              new Set([...(currentClaim.relatedExperimentIds || []), expId])
-            );
-            await updateDoc(claimRef, { relatedExperimentIds: updatedExpIds });
+            await updateDoc(claimRef, {
+              relatedExperimentIds: arrayUnion(expId),
+              updatedAt: new Date().toISOString(),
+            });
           }
         }
       }
