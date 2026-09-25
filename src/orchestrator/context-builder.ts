@@ -22,18 +22,35 @@ export class ContextBuilder {
         id: c.id,
         statement: c.statement,
         status: c.status,
+        importance: c.importance,
+        arguments: c.arguments.map((a) => ({
+          author: a.author,
+          role: a.role,
+          text: a.text,
+          type: a.type,
+        })),
+        challenges: c.challenges.map((ch) => ({
+          challenger: ch.challenger,
+          role: ch.role,
+          challenge: ch.challenge,
+        })),
       })),
       existingEvidence: evidence.map((e) => ({
         id: e.id,
         type: e.type,
         title: e.title,
         excerpt: e.excerpt,
+        reliability: e.reliability,
+        sourceType: e.sourceType,
       })),
       existingExperiments: experiments.map((exp) => ({
         id: exp.id,
         title: exp.title,
         outcome: exp.outcome,
         actualResult: exp.actualResult,
+        objective: exp.objective,
+        procedure: exp.commandOrProcedure,
+        expectedResult: exp.expectedResult,
       })),
     };
   }
