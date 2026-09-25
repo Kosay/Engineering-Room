@@ -14,18 +14,26 @@ export interface InvestigationContext {
     id: string;
     statement: string;
     status: string;
+    importance?: string;
+    arguments?: Array<{ author: string; role: string; text: string; type: string }>;
+    challenges?: Array<{ challenger: string; role: string; challenge: string }>;
   }>;
   existingEvidence: Array<{
     id: string;
     type: EvidenceType;
     title: string;
     excerpt: string;
+    reliability?: string;
+    sourceType?: string;
   }>;
   existingExperiments: Array<{
     id: string;
     title: string;
     outcome: string;
     actualResult?: string;
+    objective?: string;
+    procedure?: string;
+    expectedResult?: string;
   }>;
 }
 
