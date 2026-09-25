@@ -60,10 +60,10 @@ export class ClaimManager {
     );
 
     // To be VERIFIED: must have at least 1 passed experiment OR 1 high-reliability empirical/official source, and no active counter-evidence
-    if (passedExperiments.length > 0 && !hasActiveDisputes) {
+    if (passedExperiments.length > 0 && highReliabilityEvidence.length > 0 && !hasActiveDisputes) {
       return {
         recommendedStatus: 'verified',
-        rationale: `Empirically verified by ${passedExperiments.length} passing experiment(s).`,
+        rationale: `Verified by ${passedExperiments.length} passing experiment(s) corroborated by high-reliability evidence.`,
         canBeVerified: true,
       };
     }
