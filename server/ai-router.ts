@@ -28,17 +28,11 @@ aiRouter.post(['/analyze', '/agent-turn'], async (req: Request, res: Response) =
 
 aiRouter.post('/challenge', async (req: Request, res: Response) => {
   try {
-    const { claimStatement } = req.body;
-    return res.json({
-      challengeText: `Adversarial Check on "${claimStatement}": Have we verified whether the target process (e.g. wps.exe / kso.exe) runs under an elevated or restricted UAC token, or if COM registration keys in HKCR\\Word.Application differ from Microsoft Office?`,
-      proposingCounterClaims: [
-        {
-          statement: `WPS Office COM ProgID may be Kwps.Application instead of Word.Application depending on installed version and registry config.`,
-          importance: 'high',
-          initialStatus: 'unverified',
-          rationale: 'Kingsoft WPS historically registers both compatibility aliases and native Kwps ProgIDs. Discrepancies often fail Marshal.GetActiveObject.',
-        },
-      ],
+    if (!claimStatement || typeof claimStatement !== 'string') {
+      return res.status(400).json({ error: 'claimStatement is required.' });
+    }
+    return res.status(501).json({
+      error: 'Gemini challenge generation is not implemented yet.',
     });
   } catch (err: any) {
     return res.status(500).json({ error: err?.message || 'Internal AI challenge error' });
