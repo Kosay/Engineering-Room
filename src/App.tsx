@@ -238,7 +238,7 @@ function EngineeringWorkspace() {
       activeInvestigation.id,
       {
         statement: data.statement,
-        status: data.initialStatus,
+        status: 'unverified',
         importance: data.importance,
         createdBy: {
           id: user?.uid || 'user-engineer',
@@ -425,20 +425,12 @@ function EngineeringWorkspace() {
       artifacts,
     });
 
-    // Auto-update linked claim statuses according to empirical evidence!
+    // Experiment results are inputs to reconciliation, not direct epistemic transitions.
     for (const claimId of selectedExperimentForRecord.relatedClaimIds || []) {
       const targetClaim = claims.find((c) => c.id === claimId);
       if (!targetClaim) continue;
 
-      if (data.outcome === 'passed') {
-        await FirestoreService.updateClaim(orgId, roomId, invId, claimId, {
-          status: 'verified',
-        });
-      } else if (data.outcome === 'failed') {
-        await FirestoreService.updateClaim(orgId, roomId, invId, claimId, {
-          status: 'disproved',
-        });
-      }
+      // Do not infer VERIFIED/DISPROVED from a shared experiment outcome.
     }
   };
 
@@ -500,6 +492,10 @@ function EngineeringWorkspace() {
   // Handler: Update Claim Status directly
   const handleUpdateClaimStatus = async (claimId: string, newStatus: EpistemicStatus) => {
     if (!activeRoom || !activeInvestigation) return;
+    if (newStatus === 'verified' || newStatus === 'disproved') {
+      console.warn('Verified/disproved must be derived by reconciliation.');
+      return;
+    }
     await FirestoreService.updateClaim(
       DEFAULT_ORG_ID,
       activeRoom.id,
@@ -587,20 +583,20 @@ function EngineeringWorkspace() {
       );
     } catch (err: any) {
       console.error('Failed to run Gemini analysis:', err);
-      // Fallback message so user always sees the grounded engineering guidance
+      // Never fabricate technical conclusions when the provider is unavailable.
       await FirestoreService.addMessage(
         DEFAULT_ORG_ID,
         activeRoom.id,
         activeInvestigation.id,
         {
           sender: {
-            id: 'agent-gemini',
-            name: `Gemini 3.8 Flash (${role})`,
+            id: 'system',
+            name: 'Engineering Room',
             role,
             type: 'agent',
             provider: 'gemini',
           },
-          content: `### Architectural Analysis (.NET 8 WPF / Kingsoft WPS)\n\nIn .NET 8, Marshal.GetActiveObject was deprecated and throws PlatformNotSupportedException. Applications must either invoke oleaut32!GetActiveObject via P/Invoke or enumerate Running Object Table (ROT) monikers.\n\nFurthermore, testing confirms Kingsoft WPS Office registers both standard Word COM identifiers and native "Kwps.Application". When Microsoft 365 is co-installed, HKCR\\Word.Application points to WINWORD.EXE, making "Kwps.Application" the only reliable deterministic binding target.`,
+          content: 'Gemini analysis is unavailable. No engineering conclusion was generated. Check provider configuration and retry.',
         }
       );
     }
