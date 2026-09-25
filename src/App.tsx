@@ -49,7 +49,7 @@ import { Loader2 } from 'lucide-react';
 const DEFAULT_ORG_ID = 'org-kmh-main';
 
 function EngineeringWorkspace() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
 
   // Navigation State
   const [currentTab, setCurrentTab] = useState<MainNavTab>('room');
@@ -105,11 +105,15 @@ function EngineeringWorkspace() {
     let unsubscribeRooms: (() => void) | undefined;
 
     const initRooms = async () => {
+      if (!user) {
+        setIsLoadingRooms(false);
+        return;
+      }
       try {
         await FirestoreService.getOrCreateOrganization(
           DEFAULT_ORG_ID,
           'KMH AI Engineering Room',
-          user?.uid || 'anonymous'
+          user.uid
         );
 
         unsubscribeRooms = FirestoreService.subscribeToRooms(
@@ -151,7 +155,7 @@ function EngineeringWorkspace() {
     return () => {
       if (unsubscribeRooms) unsubscribeRooms();
     };
-  }, [user]);
+  }, [user, loading]);
 
   // 2. Subscribe to Investigations when activeRoom changes
   useEffect(() => {
