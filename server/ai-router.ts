@@ -17,53 +17,8 @@ aiRouter.post(['/analyze', '/agent-turn'], async (req: Request, res: Response) =
       return res.json(result);
     }
 
-    // Grounded fallback if Gemini API key not present or error
-    return res.json({
-      providerId: 'gemini',
-      agentRole: role || 'Architect',
-      analysisText: `### Engineering Analysis for: ${context.question}\n\n**Environment Context**: ${context.environment || 'Windows x64 / .NET 8 WPF'}\n\n**Key Technical Reality**: In .NET 8 on Windows, \`Marshal.GetActiveObject\` is no longer available in the BCL and throws \`PlatformNotSupportedException\`. Direct interop requires calling \`oleaut32.dll\` via P/Invoke or traversing the Running Object Table (ROT).\n\nAdditionally, Kingsoft WPS registers both standard Word COM compatibility identifiers and proprietary \`Kwps.Application\` ProgIDs. On systems where Microsoft Office 365 is co-installed, \`Word.Application\` resolves to WINWORD.EXE, failing WPS binding.`,
-      proposedClaims: [
-        {
-          statement: 'WPS Writer registers a compatible COM Automation server queryable via ProgID "Word.Application" or "Kwps.Application".',
-          importance: 'critical',
-          initialStatus: 'unverified',
-          rationale: 'Supported by WPS developer guides, but requires empirical validation on target Windows 11 build.',
-        },
-        {
-          statement: '.NET 8 requires explicit P/Invoke to oleaut32!GetActiveObject or ROT enumeration because System.Runtime.InteropServices.Marshal.GetActiveObject is unavailable.',
-          importance: 'high',
-          initialStatus: 'supported',
-          rationale: 'Documented in official Microsoft .NET Core / .NET 5+ migration docs for COM interop.',
-        },
-        {
-          statement: 'If WPS Office is running in a multi-tab single-process mode, accessing ActiveDocument via COM may return the first opened window rather than the foreground active tab.',
-          importance: 'high',
-          initialStatus: 'unverified',
-          rationale: 'Observed in modern tabbed WPS interfaces requiring Win32 GetForegroundWindow cross-referencing.',
-        },
-      ],
-      counterChallenges: [
-        {
-          targetClaimStatement: 'WPS Writer registers a compatible COM Automation server queryable via ProgID "Word.Application"',
-          challenge: 'Does WPS register as Word.Application when Microsoft 365 is co-installed on the same host, or does MS Office overwrite the CLSID mapping?',
-          counterHypothesis: 'Target machine with dual installs routes Word.Application strictly to WINWORD.EXE.',
-        },
-      ],
-      recommendedExperiments: [
-        {
-          title: 'Query Windows Running Object Table (ROT) for Active WPS Document Monikers',
-          objective: 'Enumerate all registered ROT monikers while a WPS document is open to determine its exact moniker syntax.',
-          commandOrProcedure: 'Execute IRunningObjectTable.EnumRunning() via C# P/Invoke probe and dump display names to stdout.',
-          expectedResult: 'ROT displays item moniker containing "!{GUID}" or file path pointing to active .docx in WPS.',
-        },
-        {
-          title: 'Test P/Invoke GetActiveObject with ProgID "Kwps.Application"',
-          objective: 'Verify whether WPS native ProgID resolves reliably when Word.Application is ambiguous.',
-          commandOrProcedure: '[DllImport("oleaut32.dll")] GetActiveObject(ref clsid, IntPtr.Zero, out object ppunk); with Kwps.Application CLSID.',
-          expectedResult: 'S_OK (0x00000000) and non-null ppunk pointer to WPS Application object.',
-        },
-      ],
-      rawTimestamp: new Date().toISOString(),
+    return res.status(503).json({
+      error: 'Gemini provider is unavailable. Configure GEMINI_API_KEY and retry.',
     });
   } catch (err: any) {
     console.error('Error handling /api/ai/analyze:', err);
