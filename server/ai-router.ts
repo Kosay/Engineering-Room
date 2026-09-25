@@ -28,6 +28,7 @@ aiRouter.post(['/analyze', '/agent-turn'], async (req: Request, res: Response) =
 
 aiRouter.post('/challenge', async (req: Request, res: Response) => {
   try {
+    const { claimStatement } = req.body;
     if (!claimStatement || typeof claimStatement !== 'string') {
       return res.status(400).json({ error: 'claimStatement is required.' });
     }
