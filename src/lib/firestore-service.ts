@@ -1004,13 +1004,8 @@ export class FirestoreService {
       executionTimestamp: new Date().toISOString(),
     });
 
-    // Update claim status based on experiment outcome
-    await this.updateClaim(orgId, roomId, inv.id, claim2.id, {
-      status: 'verified',
-    });
-    await this.updateClaim(orgId, roomId, inv.id, claim1.id, {
-      status: 'disputed',
-    });
+    // Statuses remain epistemically derived. The seed data records evidence and
+    // experiment results; reconciliation must be run to derive the current claim state.
 
     // Add supporting message
     await this.addMessage(orgId, roomId, inv.id, {
