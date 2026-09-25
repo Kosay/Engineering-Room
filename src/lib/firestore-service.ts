@@ -17,6 +17,7 @@ import {
   orderBy,
   where,
   serverTimestamp,
+  arrayUnion,
   getDocFromServer,
 } from 'firebase/firestore';
 import { getFirebaseDb, getFirebaseAuth } from './firebase';
@@ -32,6 +33,7 @@ import {
   InvestigationMessage,
   Organization,
 } from '../types';
+import { ClaimManager } from '../orchestrator/claim-manager';
 
 export enum OperationType {
   CREATE = 'create',
@@ -372,35 +374,39 @@ export class FirestoreService {
     }
   }
 
-  public static async updateClaim(
+  public static async reconcileClaimStatus(
     orgId: string,
     roomId: string,
     invId: string,
-    claimId: string,
-    updates: Partial<Claim>
-  ): Promise<void> {
+    claimId: string
+  ): Promise<Claim['status']> {
     const db = getFirebaseDb();
-    const claimPath = `organizations/${orgId}/rooms/${roomId}/investigations/${invId}/claims/${claimId}`;
-    const claimRef = doc(
-      db,
-      'organizations',
-      orgId,
-      'rooms',
-      roomId,
-      'investigations',
-      invId,
-      'claims',
-      claimId
-    );
+    const claimRef = doc(db, 'organizations', orgId, 'rooms', roomId, 'investigations', invId, 'claims', claimId);
     try {
+      const claimSnap = await getDoc(claimRef);
+      if (!claimSnap.exists()) throw new Error('Claim not found.');
+      const claim = { id: claimSnap.id, ...claimSnap.data() } as Claim;
+
+      const evidence = await getDocs(collection(db, 'organizations', orgId, 'rooms', roomId, 'investigations', invId, 'evidence'));
+      const experiments = await getDocs(collection(db, 'organizations', orgId, 'rooms', roomId, 'investigations', invId, 'experiments'));
+      const attachedEvidence = evidence.docs
+        .map((d) => ({ id: d.id, ...d.data() }) as Evidence)
+        .filter((e) => claim.relatedEvidenceIds.includes(e.id));
+      const attachedExperiments = experiments.docs
+        .map((d) => ({ id: d.id, ...d.data() }) as Experiment)
+        .filter((e) => claim.relatedExperimentIds.includes(e.id));
+
+      const evaluation = ClaimManager.evaluateStatus(claim, attachedEvidence, attachedExperiments);
       await updateDoc(claimRef, {
-        ...updates,
+        status: evaluation.recommendedStatus,
         updatedAt: new Date().toISOString(),
       });
+      return evaluation.recommendedStatus;
     } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, claimPath);
+      handleFirestoreError(err, OperationType.UPDATE, `organizations/${orgId}/rooms/${roomId}/investigations/${invId}/claims/${claimId}`);
     }
   }
+
 
   public static async addChallengeToClaim(
     orgId: string,
@@ -425,15 +431,12 @@ export class FirestoreService {
     try {
       const snap = await getDoc(claimRef);
       if (!snap.exists()) return;
-      const current = snap.data() as Claim;
-      const challenges = current.challenges || [];
-      challenges.push({
-        id: `ch-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-        ...challenge,
-        timestamp: new Date().toISOString(),
-      });
       await updateDoc(claimRef, {
-        challenges,
+        challenges: arrayUnion({
+          id: `ch-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          ...challenge,
+          timestamp: new Date().toISOString(),
+        }),
         updatedAt: new Date().toISOString(),
       });
     } catch (err) {
@@ -465,14 +468,12 @@ export class FirestoreService {
       const snap = await getDoc(claimRef);
       if (!snap.exists()) return;
       const current = snap.data() as Claim;
-      const args = current.arguments || [];
-      args.push({
-        id: `arg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-        ...arg,
-        timestamp: new Date().toISOString(),
-      });
       await updateDoc(claimRef, {
-        arguments: args,
+        arguments: arrayUnion({
+          id: `arg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          ...arg,
+          timestamp: new Date().toISOString(),
+        }),
         updatedAt: new Date().toISOString(),
       });
     } catch (err) {
@@ -565,11 +566,10 @@ export class FirestoreService {
           );
           const claimSnap = await getDoc(claimRef);
           if (claimSnap.exists()) {
-            const currentClaim = claimSnap.data() as Claim;
-            const updatedEvIds = Array.from(
-              new Set([...(currentClaim.relatedEvidenceIds || []), evId])
-            );
-            await updateDoc(claimRef, { relatedEvidenceIds: updatedEvIds });
+            await updateDoc(claimRef, {
+              relatedEvidenceIds: arrayUnion(evId),
+              updatedAt: new Date().toISOString(),
+            });
           }
         }
       }
@@ -666,11 +666,10 @@ export class FirestoreService {
           );
           const claimSnap = await getDoc(claimRef);
           if (claimSnap.exists()) {
-            const currentClaim = claimSnap.data() as Claim;
-            const updatedExpIds = Array.from(
-              new Set([...(currentClaim.relatedExperimentIds || []), expId])
-            );
-            await updateDoc(claimRef, { relatedExperimentIds: updatedExpIds });
+            await updateDoc(claimRef, {
+              relatedExperimentIds: arrayUnion(expId),
+              updatedAt: new Date().toISOString(),
+            });
           }
         }
       }
@@ -1005,13 +1004,8 @@ export class FirestoreService {
       executionTimestamp: new Date().toISOString(),
     });
 
-    // Update claim status based on experiment outcome
-    await this.updateClaim(orgId, roomId, inv.id, claim2.id, {
-      status: 'verified',
-    });
-    await this.updateClaim(orgId, roomId, inv.id, claim1.id, {
-      status: 'disputed',
-    });
+    // Statuses remain epistemically derived. The seed data records evidence and
+    // experiment results; reconciliation must be run to derive the current claim state.
 
     // Add supporting message
     await this.addMessage(orgId, roomId, inv.id, {

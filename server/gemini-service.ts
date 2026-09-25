@@ -110,7 +110,7 @@ Analyze this engineering problem with zero hand-waving. Identify differences bet
       };
     }
   } catch (err) {
-    console.error('Gemini API call failed, falling back to local heuristic analysis:', err);
+    console.error('Gemini API call failed:', err);
   }
 
   return null;

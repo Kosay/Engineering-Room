@@ -36,13 +36,6 @@ export class ClaimManager {
     const failedExperiments = attachedExperiments.filter(
       (e) => e.outcome === 'failed'
     );
-    if (failedExperiments.length > 0) {
-      return {
-        recommendedStatus: 'disproved',
-        rationale: `Falsified by ${failedExperiments.length} failed experiment(s): ${failedExperiments.map((e) => e.title).join(', ')}`,
-        canBeVerified: false,
-      };
-    }
 
     // Check active challenges or counter-arguments
     const hasActiveDisputes =
@@ -59,19 +52,29 @@ export class ClaimManager {
         ev.type !== 'agent_reasoning' // Agent reasoning is never sufficient for verification!
     );
 
-    // To be VERIFIED: must have at least 1 passed experiment OR 1 high-reliability empirical/official source, and no active counter-evidence
-    if (passedExperiments.length > 0 && highReliabilityEvidence.length > 0 && !hasActiveDisputes) {
+    // A failed experiment only disproves a claim when the recorded result is conclusive.
+    const conclusiveFailedExperiments = failedExperiments.filter(
+      (e) => Boolean(e.actualResult && e.actualResult.trim().length > 10)
+    );
+    if (conclusiveFailedExperiments.length > 0) {
       return {
-        recommendedStatus: 'verified',
-        rationale: `Verified by ${passedExperiments.length} passing experiment(s) corroborated by high-reliability evidence.`,
-        canBeVerified: true,
+        recommendedStatus: 'disproved',
+        rationale: `Disproved by ${conclusiveFailedExperiments.length} conclusive failed experiment(s).`,
+        canBeVerified: false,
       };
     }
 
-    if (highReliabilityEvidence.length > 0 && !hasActiveDisputes) {
+    // Verification requires authoritative high-reliability evidence OR a conclusive
+    // passing experiment. Agent reasoning alone never qualifies.
+    const conclusivePassedExperiments = passedExperiments.filter(
+      (e) => Boolean(e.actualResult && e.actualResult.trim().length > 10)
+    );
+    if ((conclusivePassedExperiments.length > 0 || highReliabilityEvidence.length > 0) && !hasActiveDisputes) {
       return {
         recommendedStatus: 'verified',
-        rationale: `Corroborated by high-reliability evidence (${highReliabilityEvidence[0].type}) with no unresolved disputes.`,
+        rationale: conclusivePassedExperiments.length > 0
+          ? `Verified by ${conclusivePassedExperiments.length} conclusive passing experiment(s).`
+          : `Verified by high-reliability evidence (${highReliabilityEvidence[0].type}).`,
         canBeVerified: true,
       };
     }

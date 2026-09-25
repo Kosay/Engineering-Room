@@ -28,6 +28,7 @@ import { CreateRoomModal } from './components/modals/CreateRoomModal';
 
 import { FirestoreService, testConnection } from './lib/firestore-service';
 import { ClaimManager } from './orchestrator/claim-manager';
+import { DecisionManager } from './orchestrator/decision-manager';
 import {
   EngineeringRoom,
   Investigation,
@@ -461,6 +462,20 @@ function EngineeringWorkspace() {
   // Handler: Approve Decision
   const handleApproveDecision = async (decisionId: string) => {
     if (!activeRoom || !activeInvestigation) return;
+    const decision = decisions.find((d) => d.id === decisionId);
+    if (!decision) return;
+
+    const readiness = DecisionManager.evaluateDecisionReadiness(
+      decision,
+      claims,
+      evidence,
+      experiments
+    );
+    if (!readiness.isReadyForApproval) {
+      console.warn('Decision cannot be approved:', readiness.blockers);
+      return;
+    }
+
     await FirestoreService.updateDecision(
       DEFAULT_ORG_ID,
       activeRoom.id,
@@ -468,7 +483,7 @@ function EngineeringWorkspace() {
       decisionId,
       {
         status: 'approved',
-        approvedBy: user?.displayName || 'Kosay Hatem (Lead Architect)',
+        approvedBy: user?.displayName || 'Lead Engineer',
         approvedAt: new Date().toISOString(),
       }
     );
@@ -478,17 +493,15 @@ function EngineeringWorkspace() {
   const handleReconcileAll = async () => {
     if (!activeRoom || !activeInvestigation) return;
     for (const claim of claims) {
-      const relEv = evidence.filter((e) => claim.relatedEvidenceIds?.includes(e.id));
-      const relExp = experiments.filter((e) => claim.relatedExperimentIds?.includes(e.id));
-      const evaluated = ClaimManager.evaluateStatus(claim, relEv, relExp);
-      if (evaluated.recommendedStatus !== claim.status) {
-        await FirestoreService.updateClaim(
+      try {
+        await FirestoreService.reconcileClaimStatus(
           DEFAULT_ORG_ID,
           activeRoom.id,
           activeInvestigation.id,
-          claim.id,
-          { status: evaluated.recommendedStatus }
+          claim.id
         );
+      } catch (error) {
+        console.error('Failed to reconcile claim', claim.id, error);
       }
     }
   };

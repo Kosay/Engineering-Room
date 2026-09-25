@@ -70,13 +70,20 @@ export class DecisionManager {
       );
     }
 
-    const unverifiedClaims = relatedClaims.filter(
-      (c) => c.status === 'unverified' || c.status === 'unknown'
+    const unresolvedClaims = relatedClaims.filter(
+      (c) => c.status === 'unverified' || c.status === 'unknown' || c.status === 'disputed'
     );
-    if (unverifiedClaims.length > 0) {
-      warnings.push(
-        `${unverifiedClaims.length} supporting claim(s) are still unverified.`
+    if (unresolvedClaims.length > 0) {
+      blockers.push(
+        `${unresolvedClaims.length} related claim(s) are not resolved: ${unresolvedClaims.map((c) => c.status).join(', ')}.`
       );
+    }
+
+    const supportedOrVerifiedClaims = relatedClaims.filter(
+      (c) => c.status === 'supported' || c.status === 'verified'
+    );
+    if (supportedOrVerifiedClaims.length === 0 && relatedClaims.length > 0) {
+      blockers.push('No related claim has sufficient supporting evidence.');
     }
 
     const isReadyForApproval = blockers.length === 0;
