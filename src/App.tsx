@@ -478,17 +478,15 @@ function EngineeringWorkspace() {
   const handleReconcileAll = async () => {
     if (!activeRoom || !activeInvestigation) return;
     for (const claim of claims) {
-      const relEv = evidence.filter((e) => claim.relatedEvidenceIds?.includes(e.id));
-      const relExp = experiments.filter((e) => claim.relatedExperimentIds?.includes(e.id));
-      const evaluated = ClaimManager.evaluateStatus(claim, relEv, relExp);
-      if (evaluated.recommendedStatus !== claim.status) {
-        await FirestoreService.updateClaim(
+      try {
+        await FirestoreService.reconcileClaimStatus(
           DEFAULT_ORG_ID,
           activeRoom.id,
           activeInvestigation.id,
-          claim.id,
-          { status: evaluated.recommendedStatus }
+          claim.id
         );
+      } catch (error) {
+        console.error('Failed to reconcile claim', claim.id, error);
       }
     }
   };
