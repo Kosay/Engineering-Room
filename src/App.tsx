@@ -25,6 +25,8 @@ import { RecordExperimentResultModal } from './components/modals/RecordExperimen
 import { CreateDecisionModal } from './components/modals/CreateDecisionModal';
 import { CreateInvestigationModal } from './components/modals/CreateInvestigationModal';
 import { CreateRoomModal } from './components/modals/CreateRoomModal';
+import { GlobalSearchModal } from './components/modals/GlobalSearchModal';
+import { SettingsModal } from './components/modals/SettingsModal';
 
 import { FirestoreService, testConnection } from './lib/firestore-service';
 import { ClaimManager } from './orchestrator/claim-manager';
@@ -95,6 +97,52 @@ function EngineeringWorkspace() {
   const [isCreateDecisionOpen, setIsCreateDecisionOpen] = useState(false);
   const [isCreateInvestigationOpen, setIsCreateInvestigationOpen] = useState(false);
   const [isCreateRoomOpen, setIsCreateRoomOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+
+  // Global Cmd+K / Ctrl+K keyboard shortcut for Search
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        setIsSearchOpen((prev) => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Handler: Navigate to artifact selected in Search
+  const handleSelectSearchResult = (
+    type: 'investigation' | 'claim' | 'evidence' | 'experiment' | 'decision',
+    id: string,
+    investigationId?: string
+  ) => {
+    if (investigationId) {
+      const targetInv = investigations.find((i) => i.id === investigationId);
+      if (targetInv && targetInv.id !== activeInvestigation?.id) {
+        setActiveInvestigation(targetInv);
+      }
+    }
+
+    switch (type) {
+      case 'investigation':
+        setCurrentTab('room');
+        break;
+      case 'claim':
+        setCurrentTab('claims');
+        break;
+      case 'evidence':
+        setCurrentTab('evidence');
+        break;
+      case 'experiment':
+        setCurrentTab('experiments');
+        break;
+      case 'decision':
+        setCurrentTab('decisions');
+        break;
+    }
+  };
 
   // Validate Firestore Connection on mount
   useEffect(() => {
@@ -670,6 +718,8 @@ function EngineeringWorkspace() {
         onSelectRoom={setActiveRoom}
         onOpenCreateRoom={() => setIsCreateRoomOpen(true)}
         onResetSeedData={handleResetSeedData}
+        onOpenSearch={() => setIsSearchOpen(true)}
+        onOpenSettings={() => setIsSettingsOpen(true)}
       />
 
       <div className="flex-1 flex flex-col lg:flex-row">
@@ -682,6 +732,8 @@ function EngineeringWorkspace() {
           experimentsCount={experiments.length}
           decisionsCount={decisions.length}
           onOpenCreateInvestigation={() => setIsCreateInvestigationOpen(true)}
+          onOpenSearch={() => setIsSearchOpen(true)}
+          onOpenSettings={() => setIsSettingsOpen(true)}
           activeProjectTarget={activeRoom?.projectTarget || 'WPS AI (.NET 8 WPF)'}
         />
 
@@ -893,6 +945,23 @@ function EngineeringWorkspace() {
         isOpen={isCreateRoomOpen}
         onClose={() => setIsCreateRoomOpen(false)}
         onSubmit={handleCreateRoom}
+      />
+
+      <GlobalSearchModal
+        isOpen={isSearchOpen}
+        onClose={() => setIsSearchOpen(false)}
+        investigations={investigations}
+        claims={claims}
+        evidence={evidence}
+        experiments={experiments}
+        decisions={decisions}
+        onSelectResult={handleSelectSearchResult}
+      />
+
+      <SettingsModal
+        isOpen={isSettingsOpen}
+        onClose={() => setIsSettingsOpen(false)}
+        onOpenCreateInvestigation={() => setIsCreateInvestigationOpen(true)}
       />
     </div>
   );

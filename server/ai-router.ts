@@ -10,8 +10,13 @@ export const aiRouter = Router();
 
 aiRouter.post(['/analyze', '/agent-turn'], async (req: Request, res: Response) => {
   try {
-    const { role, context } = req.body;
-    const result = await processInvestigationAnalysis({ role: role || 'Architect', context });
+    const { role, context, apiKey } = req.body;
+    const clientApiKey = (req.headers['x-gemini-api-key'] as string) || apiKey;
+    const result = await processInvestigationAnalysis({
+      role: role || 'Architect',
+      context,
+      clientApiKey,
+    });
 
     if (result) {
       return res.json(result);

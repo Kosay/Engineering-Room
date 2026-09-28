@@ -7,25 +7,24 @@ import { GoogleGenAI } from '@google/genai';
 
 let aiClient: GoogleGenAI | null = null;
 
-function getGeminiClient(): GoogleGenAI | null {
-  if (!aiClient) {
-    const key = process.env.GEMINI_API_KEY;
-    if (key && key !== 'MY_GEMINI_API_KEY') {
-      aiClient = new GoogleGenAI({
-        apiKey: key,
-        httpOptions: {
-          headers: {
-            'User-Agent': 'aistudio-build',
-          },
+function getGeminiClient(customApiKey?: string): GoogleGenAI | null {
+  const key = customApiKey || process.env.GEMINI_API_KEY;
+  if (key && key !== 'MY_GEMINI_API_KEY') {
+    return new GoogleGenAI({
+      apiKey: key,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
         },
-      });
-    }
+      },
+    });
   }
-  return aiClient;
+  return null;
 }
 
 export async function processInvestigationAnalysis(payload: {
   role: string;
+  clientApiKey?: string;
   context: {
     title: string;
     question: string;
@@ -35,8 +34,8 @@ export async function processInvestigationAnalysis(payload: {
     existingExperiments: Array<{ title: string; outcome: string }>;
   };
 }) {
-  const { role, context } = payload;
-  const client = getGeminiClient();
+  const { role, context, clientApiKey } = payload;
+  const client = getGeminiClient(clientApiKey);
 
   if (!client) {
     console.log('No GEMINI_API_KEY configured in environment, utilizing deterministic engineering fallback.');

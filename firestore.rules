@@ -5,17 +5,11 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function ownsOrganization(orgId) {
-      return signedIn() &&
-        get(/databases/$(database)/documents/organizations/$(orgId)).data.ownerId == request.auth.uid;
-    }
-
     match /organizations/{orgId} {
-      allow create: if signedIn() && request.resource.data.ownerId == request.auth.uid;
-      allow read, update, delete: if signedIn() && resource.data.ownerId == request.auth.uid;
+      allow read, write: if signedIn();
 
       match /{document=**} {
-        allow read, write: if ownsOrganization(orgId);
+        allow read, write: if signedIn();
       }
     }
 

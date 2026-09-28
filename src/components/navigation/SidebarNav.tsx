@@ -18,12 +18,9 @@ import {
   FileText,
   FlaskConical,
   CheckSquare,
-  BarChart3,
-  CheckCircle2,
-  AlertTriangle,
-  XCircle,
-  HelpCircle,
   Plus,
+  Search,
+  Settings,
 } from 'lucide-react';
 import { Claim } from '../../types';
 
@@ -44,6 +41,8 @@ interface SidebarNavProps {
   experimentsCount: number;
   decisionsCount: number;
   onOpenCreateInvestigation: () => void;
+  onOpenSearch?: () => void;
+  onOpenSettings?: () => void;
   activeProjectTarget: string;
 }
 
@@ -56,6 +55,8 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
   experimentsCount,
   decisionsCount,
   onOpenCreateInvestigation,
+  onOpenSearch,
+  onOpenSettings,
   activeProjectTarget,
 }) => {
   // Live epistemic status counter
@@ -122,15 +123,44 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
           </p>
         </div>
 
-        {/* Quick New Investigation Button */}
-        <button
-          id="btn-sidebar-new-investigation"
-          onClick={onOpenCreateInvestigation}
-          className="w-full py-2 px-3 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors flex items-center justify-center gap-1.5"
-        >
-          <Plus size={14} />
-          New Investigation
-        </button>
+        {/* Quick Actions: New Investigation & Quick Search */}
+        <div className="space-y-2">
+          <button
+            id="btn-sidebar-new-investigation"
+            onClick={onOpenCreateInvestigation}
+            className="w-full py-2 px-3 bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-semibold rounded-lg shadow-sm transition-colors flex items-center justify-center gap-1.5"
+          >
+            <Plus size={14} />
+            New Investigation
+          </button>
+
+          {onOpenSearch && (
+            <button
+              id="btn-sidebar-search"
+              onClick={onOpenSearch}
+              className="w-full py-2 px-3 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-cyan-300 text-xs font-mono rounded-lg transition-colors flex items-center justify-between"
+            >
+              <div className="flex items-center gap-2">
+                <Search size={14} className="text-cyan-400" />
+                <span>Search Room...</span>
+              </div>
+              <span className="text-[10px] text-slate-500 bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded">
+                ⌘K
+              </span>
+            </button>
+          )}
+
+          {onOpenSettings && (
+            <button
+              id="btn-sidebar-settings"
+              onClick={onOpenSettings}
+              className="w-full py-2 px-3 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-cyan-300 text-xs font-mono rounded-lg transition-colors flex items-center gap-2"
+            >
+              <Settings size={14} className="text-cyan-400" />
+              <span>AI Keys & Settings</span>
+            </button>
+          )}
+        </div>
 
         {/* Navigation Items */}
         <nav className="space-y-1" id="nav-sidebar">

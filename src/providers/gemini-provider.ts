@@ -28,9 +28,15 @@ export class GeminiProvider implements AIProvider {
     role: AgentRole = 'Architect'
   ): Promise<ProviderAnalysisResult> {
     try {
+      const customKey = localStorage.getItem('KMH_GEMINI_API_KEY') || '';
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (customKey) {
+        headers['x-gemini-api-key'] = customKey;
+      }
+
       const response = await fetch('/api/ai/analyze', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           providerId: this.id,
           role,

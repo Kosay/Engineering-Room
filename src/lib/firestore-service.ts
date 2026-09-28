@@ -374,6 +374,26 @@ export class FirestoreService {
     }
   }
 
+  public static async updateClaim(
+    orgId: string,
+    roomId: string,
+    invId: string,
+    claimId: string,
+    updates: Partial<Claim>
+  ): Promise<void> {
+    const db = getFirebaseDb();
+    const claimPath = `organizations/${orgId}/rooms/${roomId}/investigations/${invId}/claims/${claimId}`;
+    const claimRef = doc(db, 'organizations', orgId, 'rooms', roomId, 'investigations', invId, 'claims', claimId);
+    try {
+      await updateDoc(claimRef, {
+        ...updates,
+        updatedAt: new Date().toISOString(),
+      });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, claimPath);
+    }
+  }
+
   public static async reconcileClaimStatus(
     orgId: string,
     roomId: string,
