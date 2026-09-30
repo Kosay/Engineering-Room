@@ -131,3 +131,32 @@ test('decision approval is blocked by unresolved claims', () => {
   assert.equal(result.isReadyForApproval, false);
   assert.ok(result.blockers.length > 0);
 });
+
+
+test('decision approval requires a fully resolved decision', () => {
+  const decision = {
+    id: 'decision-2',
+    organizationId: 'org-1',
+    roomId: 'room-1',
+    investigationId: 'inv-1',
+    title: 'Test decision',
+    decision: 'Use approach B',
+    status: 'proposed',
+    rationale: 'Test',
+    relatedClaimIds: ['claim-1'],
+    relatedEvidenceIds: [],
+    relatedExperimentIds: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  } as Decision;
+
+  const resolvedClaim = claim({ status: 'verified' });
+  const result = DecisionManager.evaluateDecisionReadiness(
+    decision,
+    [resolvedClaim],
+    [],
+    []
+  );
+
+  assert.equal(result.isReadyForApproval, true);
+});
