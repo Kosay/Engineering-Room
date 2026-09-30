@@ -4,6 +4,7 @@
  */
 
 import { AgentRole, AIProviderId } from '../types';
+import { getFirebaseAuth } from '../lib/firebase';
 import {
   AIProvider,
   ClaimDraft,
@@ -23,6 +24,15 @@ export class GeminiProvider implements AIProvider {
   ];
   readonly isConnected = true;
 
+  private async authHeaders(): Promise<Record<string, string>> {
+    const user = getFirebaseAuth().currentUser;
+    if (!user) throw new Error('Authentication is required for AI provider requests.');
+    return {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${await user.getIdToken()}`,
+    };
+  }
+
   async analyzeInvestigation(
     context: InvestigationContext,
     role: AgentRole = 'Architect'
@@ -30,7 +40,7 @@ export class GeminiProvider implements AIProvider {
     try {
       const response = await fetch('/api/ai/analyze', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await this.authHeaders(),
         body: JSON.stringify({
           providerId: this.id,
           role,
@@ -62,7 +72,7 @@ export class GeminiProvider implements AIProvider {
     try {
       const response = await fetch('/api/ai/challenge', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: await this.authHeaders(),
         body: JSON.stringify({
           providerId: this.id,
           role,

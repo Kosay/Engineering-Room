@@ -1,12 +1,9 @@
-/**
- * Production Server
- */
-
 import express from 'express';
+import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import dotenv from 'dotenv';
 import { aiRouter } from './server/ai-router';
+import { epistemicRouter } from './server/epistemic-router';
 
 dotenv.config();
 
@@ -14,19 +11,18 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
-app.use(express.json());
+app.use(express.json({ limit: '2mb' }));
 app.use('/api/ai', aiRouter);
+app.use('/api/epistemic', epistemicRouter);
 
-// Serve static assets from dist
 app.use(express.static(path.join(__dirname, 'dist')));
 
-// Fallback to index.html for SPA routing
-app.get('*', (_req, res) => {
+app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`KMH AI Engineering Room server running on port ${PORT}`);
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
