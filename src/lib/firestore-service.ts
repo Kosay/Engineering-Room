@@ -787,6 +787,43 @@ export class FirestoreService {
     }
   }
 
+  public static async approveDecision(
+    orgId: string,
+    roomId: string,
+    invId: string,
+    decisionId: string,
+    approvedBy?: string
+  ): Promise<void> {
+    const user = getFirebaseAuth().currentUser;
+    if (!user) throw new Error('Authentication is required for decision approval.');
+
+    try {
+      const idToken = await user.getIdToken();
+      const response = await fetch('/api/decisions/approve', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ orgId, roomId, invId, decisionId, approvedBy }),
+      });
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        const details = payload.blockers?.length
+          ? ` ${payload.blockers.join(' ')}`
+          : '';
+        throw new Error((payload.error || `Approval failed with status ${response.status}`) + details);
+      }
+    } catch (err) {
+      handleFirestoreError(
+        err,
+        OperationType.UPDATE,
+        `organizations/${orgId}/rooms/${roomId}/investigations/${invId}/decisions/${decisionId}`
+      );
+    }
+  }
+
   public static async updateDecision(
     orgId: string,
     roomId: string,
