@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { FieldValue } from 'firebase-admin/firestore';
-import { adminDb } from './firebase-admin';
+import { getAdminDb } from './firebase-admin';
 import { requireFirebaseUser } from './auth';
 import { ClaimManager } from '../src/orchestrator/claim-manager';
 import type { Claim, Evidence, Experiment } from '../src/types';
@@ -15,17 +15,18 @@ epistemicRouter.post('/reconcile-claim', async (req, res) => {
     }
 
     const user = await requireFirebaseUser(req);
-    const orgSnap = await adminDb.doc(`organizations/${orgId}`).get();
+    const db = getAdminDb();
+    const orgSnap = await db.doc(`organizations/${orgId}`).get();
     if (!orgSnap.exists || orgSnap.data()?.ownerId !== user.uid) {
       return res.status(403).json({ error: 'Not authorized for this organization.' });
     }
 
     const base = `organizations/${orgId}/rooms/${roomId}/investigations/${invId}`;
-    const claimRef = adminDb.doc(`${base}/claims/${claimId}`);
+    const claimRef = db.doc(`${base}/claims/${claimId}`);
     const [claimSnap, evidenceSnap, experimentSnap] = await Promise.all([
       claimRef.get(),
-      adminDb.collection(`${base}/evidence`).get(),
-      adminDb.collection(`${base}/experiments`).get(),
+      db.collection(`${base}/evidence`).get(),
+      db.collection(`${base}/experiments`).get(),
     ]);
 
     if (!claimSnap.exists) return res.status(404).json({ error: 'Claim not found.' });
