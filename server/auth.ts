@@ -1,5 +1,5 @@
-import { getAuth } from 'firebase-admin/auth';
 import type { Request } from 'express';
+import { getAdminAuth } from './firebase-admin';
 
 export async function requireFirebaseUser(req: Request) {
   const header = req.header('authorization');
@@ -8,5 +8,5 @@ export async function requireFirebaseUser(req: Request) {
   const token = header.slice('Bearer '.length).trim();
   if (!token) throw new Error('Missing Firebase ID token.');
 
-  return getAuth().verifyIdToken(token);
+  return getAdminAuth().verifyIdToken(token);
 }
