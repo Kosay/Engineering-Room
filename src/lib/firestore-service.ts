@@ -380,33 +380,35 @@ export class FirestoreService {
     invId: string,
     claimId: string
   ): Promise<Claim['status']> {
-    const db = getFirebaseDb();
-    const claimRef = doc(db, 'organizations', orgId, 'rooms', roomId, 'investigations', invId, 'claims', claimId);
+    const auth = getFirebaseAuth();
+    const user = auth.currentUser;
+    if (!user) throw new Error('Authentication is required for reconciliation.');
+
     try {
-      const claimSnap = await getDoc(claimRef);
-      if (!claimSnap.exists()) throw new Error('Claim not found.');
-      const claim = { id: claimSnap.id, ...claimSnap.data() } as Claim;
-
-      const evidence = await getDocs(collection(db, 'organizations', orgId, 'rooms', roomId, 'investigations', invId, 'evidence'));
-      const experiments = await getDocs(collection(db, 'organizations', orgId, 'rooms', roomId, 'investigations', invId, 'experiments'));
-      const attachedEvidence = evidence.docs
-        .map((d) => ({ id: d.id, ...d.data() }) as Evidence)
-        .filter((e) => claim.relatedEvidenceIds.includes(e.id));
-      const attachedExperiments = experiments.docs
-        .map((d) => ({ id: d.id, ...d.data() }) as Experiment)
-        .filter((e) => claim.relatedExperimentIds.includes(e.id));
-
-      const evaluation = ClaimManager.evaluateStatus(claim, attachedEvidence, attachedExperiments);
-      await updateDoc(claimRef, {
-        status: evaluation.recommendedStatus,
-        updatedAt: new Date().toISOString(),
+      const idToken = await user.getIdToken();
+      const response = await fetch('/api/epistemic/reconcile-claim', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ orgId, roomId, invId, claimId }),
       });
-      return evaluation.recommendedStatus;
+
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || `Reconciliation failed with status ${response.status}`);
+      }
+
+      return payload.status as Claim['status'];
     } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, `organizations/${orgId}/rooms/${roomId}/investigations/${invId}/claims/${claimId}`);
+      handleFirestoreError(
+        err,
+        OperationType.UPDATE,
+        `organizations/${orgId}/rooms/${roomId}/investigations/${invId}/claims/${claimId}`
+      );
     }
   }
-
 
   public static async addChallengeToClaim(
     orgId: string,
