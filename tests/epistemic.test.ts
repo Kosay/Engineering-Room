@@ -93,7 +93,7 @@ test('active challenge prevents verification', () => {
       challenges: [{
         id: 'challenge-1',
         challenger: 'Reviewer',
-        role: 'Reviewer',
+        role: 'Adversarial Reviewer',
         challenge: 'Show reproducible evidence.',
         timestamp: new Date().toISOString(),
       }],
