@@ -461,31 +461,18 @@ function EngineeringWorkspace() {
   // Handler: Approve Decision
   const handleApproveDecision = async (decisionId: string) => {
     if (!activeRoom || !activeInvestigation) return;
-    const decision = decisions.find((d) => d.id === decisionId);
-    if (!decision) return;
 
-    const readiness = InvestigationOrchestrator.assessDecisionReadiness(
-      decision,
-      claims,
-      evidence,
-      experiments
-    );
-    if (!readiness.isReadyForApproval) {
-      console.warn('Decision cannot be approved:', readiness.blockers);
-      return;
+    try {
+      await FirestoreService.approveDecision(
+        DEFAULT_ORG_ID,
+        activeRoom.id,
+        activeInvestigation.id,
+        decisionId,
+        user?.displayName || 'Lead Engineer'
+      );
+    } catch (error) {
+      console.error('Decision approval failed:', error);
     }
-
-    await FirestoreService.updateDecision(
-      DEFAULT_ORG_ID,
-      activeRoom.id,
-      activeInvestigation.id,
-      decisionId,
-      {
-        status: 'approved',
-        approvedBy: user?.displayName || 'Lead Engineer',
-        approvedAt: new Date().toISOString(),
-      }
-    );
   };
 
   // Handler: Reconcile All Claims
