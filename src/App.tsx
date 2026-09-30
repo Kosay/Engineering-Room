@@ -27,8 +27,7 @@ import { CreateInvestigationModal } from './components/modals/CreateInvestigatio
 import { CreateRoomModal } from './components/modals/CreateRoomModal';
 
 import { FirestoreService, testConnection } from './lib/firestore-service';
-import { ClaimManager } from './orchestrator/claim-manager';
-import { DecisionManager } from './orchestrator/decision-manager';
+import { InvestigationOrchestrator } from './orchestrator/investigation-orchestrator';
 import {
   EngineeringRoom,
   Investigation,
@@ -465,7 +464,7 @@ function EngineeringWorkspace() {
     const decision = decisions.find((d) => d.id === decisionId);
     if (!decision) return;
 
-    const readiness = DecisionManager.evaluateDecisionReadiness(
+    const readiness = InvestigationOrchestrator.assessDecisionReadiness(
       decision,
       claims,
       evidence,
@@ -546,43 +545,15 @@ function EngineeringWorkspace() {
     if (!activeRoom || !activeInvestigation) return;
 
     try {
-      const response = await fetch('/api/ai/analyze', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          role,
-          context: {
-            question: activeInvestigation.question,
-            environment: activeInvestigation.environment,
-            claims: claims.map((c) => ({
-              id: c.id,
-              statement: c.statement,
-              status: c.status,
-              importance: c.importance,
-            })),
-            evidence: evidence.map((e) => ({
-              id: e.id,
-              type: e.type,
-              title: e.title,
-              reliability: e.reliability,
-            })),
-            experiments: experiments.map((exp) => ({
-              id: exp.id,
-              title: exp.title,
-              outcome: exp.outcome,
-              actualResult: exp.actualResult,
-            })),
-          },
-        }),
-      });
+      const result = await InvestigationOrchestrator.executeAnalysis(
+        activeInvestigation,
+        claims,
+        evidence,
+        experiments,
+        'gemini',
+        role
+      );
 
-      if (!response.ok) {
-        throw new Error(`AI API returned status ${response.status}`);
-      }
-
-      const aiData = await response.json();
-
-      // Persist agent message
       await FirestoreService.addMessage(
         DEFAULT_ORG_ID,
         activeRoom.id,
@@ -595,12 +566,11 @@ function EngineeringWorkspace() {
             type: 'agent',
             provider: 'gemini',
           },
-          content: aiData.analysisText || 'Analysis completed.',
+          content: result.analysisText || 'Analysis completed.',
         }
       );
-    } catch (err: any) {
+    } catch (err) {
       console.error('Failed to run Gemini analysis:', err);
-      // Never fabricate technical conclusions when the provider is unavailable.
       await FirestoreService.addMessage(
         DEFAULT_ORG_ID,
         activeRoom.id,
