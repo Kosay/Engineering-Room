@@ -10,12 +10,20 @@ service cloud.firestore {
         get(/databases/$(database)/documents/organizations/$(orgId)).data.ownerId == request.auth.uid;
     }
 
+    function nonTerminalStatus(data) {
+      return data.get('status', '') != 'verified' &&
+        data.get('status', '') != 'disproved';
+    }
+
     match /organizations/{orgId} {
       allow create: if signedIn() && request.resource.data.ownerId == request.auth.uid;
       allow read, update, delete: if signedIn() && resource.data.ownerId == request.auth.uid;
 
       match /{document=**} {
-        allow read, write: if ownsOrganization(orgId);
+        allow read: if ownsOrganization(orgId);
+        allow create, update: if ownsOrganization(orgId) && nonTerminalStatus(request.resource.data) &&
+          (request.method == 'create' || nonTerminalStatus(resource.data));
+        allow delete: if ownsOrganization(orgId);
       }
     }
 
