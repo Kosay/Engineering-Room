@@ -24,7 +24,9 @@ service cloud.firestore {
         allow create: if ownsOrganization(orgId) && nonTerminalStatus(request.resource.data);
         allow update: if ownsOrganization(orgId) &&
           nonTerminalStatus(resource.data) &&
-          nonTerminalStatus(request.resource.data);
+          nonTerminalStatus(request.resource.data) &&
+          resource.data.get('status', '') != 'approved' &&
+          request.resource.data.get('status', '') != 'approved';
         allow delete: if ownsOrganization(orgId);
       }
     }
