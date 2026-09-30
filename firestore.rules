@@ -21,8 +21,10 @@ service cloud.firestore {
 
       match /{document=**} {
         allow read: if ownsOrganization(orgId);
-        allow create, update: if ownsOrganization(orgId) && nonTerminalStatus(request.resource.data) &&
-          (request.method == 'create' || nonTerminalStatus(resource.data));
+        allow create: if ownsOrganization(orgId) && nonTerminalStatus(request.resource.data);
+        allow update: if ownsOrganization(orgId) &&
+          nonTerminalStatus(resource.data) &&
+          nonTerminalStatus(request.resource.data);
         allow delete: if ownsOrganization(orgId);
       }
     }
