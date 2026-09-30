@@ -1,7 +1,8 @@
 import { cert, getApps, initializeApp } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
 import { getFirestore } from 'firebase-admin/firestore';
 
-function initializeAdmin() {
+function ensureAdminApp() {
   if (getApps().length > 0) return getApps()[0];
 
   const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
@@ -12,5 +13,12 @@ function initializeAdmin() {
   return initializeApp();
 }
 
-export const firebaseAdminApp = initializeAdmin();
-export const adminDb = getFirestore(firebaseAdminApp);
+export function getAdminDb() {
+  ensureAdminApp();
+  return getFirestore();
+}
+
+export function getAdminAuth() {
+  ensureAdminApp();
+  return getAuth();
+}
