@@ -23,49 +23,57 @@ decisionRouter.post('/approve', async (req, res) => {
 
     const base = `organizations/${orgId}/rooms/${roomId}/investigations/${invId}`;
     const decisionRef = db.doc(`${base}/decisions/${decisionId}`);
-    const [decisionSnap, claimsSnap, evidenceSnap, experimentSnap] = await Promise.all([
-      decisionRef.get(),
-      db.collection(`${base}/claims`).get(),
-      db.collection(`${base}/evidence`).get(),
-      db.collection(`${base}/experiments`).get(),
-    ]);
 
-    if (!decisionSnap.exists) return res.status(404).json({ error: 'Decision not found.' });
+    await db.runTransaction(async (tx) => {
+      const decisionSnap = await tx.get(decisionRef);
+      if (!decisionSnap.exists) throw new Error('Decision not found.');
 
-    const decision = { id: decisionSnap.id, ...decisionSnap.data() } as Decision;
-    if (decision.status === 'approved') {
-      return res.status(409).json({ error: 'Decision is already approved.' });
-    }
+      const [claimsSnap, evidenceSnap, experimentSnap] = await Promise.all([
+        tx.get(db.collection(`${base}/claims`)),
+        tx.get(db.collection(`${base}/evidence`)),
+        tx.get(db.collection(`${base}/experiments`)),
+      ]);
 
-    const claims = claimsSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Claim);
-    const evidence = evidenceSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Evidence);
-    const experiments = experimentSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Experiment);
+      const decision = { id: decisionSnap.id, ...decisionSnap.data() } as Decision;
+      if (decision.status === 'approved') {
+        throw new Error('Decision is already approved.');
+      }
 
-    const readiness = DecisionManager.evaluateDecisionReadiness(
-      decision,
-      claims,
-      evidence,
-      experiments
-    );
+      const claims = claimsSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Claim);
+      const evidence = evidenceSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Evidence);
+      const experiments = experimentSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Experiment);
 
-    if (!readiness.isReadyForApproval) {
-      return res.status(409).json({
-        error: 'Decision is not ready for approval.',
-        blockers: readiness.blockers,
-        warnings: readiness.warnings,
+      const readiness = DecisionManager.evaluateDecisionReadiness(
+        decision,
+        claims,
+        evidence,
+        experiments
+      );
+
+      if (!readiness.isReadyForApproval) {
+        const error = new Error('Decision is not ready for approval.');
+        (error as Error & { blockers?: string[]; warnings?: string[] }).blockers = readiness.blockers;
+        (error as Error & { blockers?: string[]; warnings?: string[] }).warnings = readiness.warnings;
+        throw error;
+      }
+
+      tx.update(decisionRef, {
+        status: 'approved',
+        approvedBy: user.displayName || user.email || user.uid,
+        approvedAt: new Date().toISOString(),
+        updatedAt: FieldValue.serverTimestamp(),
       });
-    }
-
-    await decisionRef.update({
-      status: 'approved',
-      approvedBy: user.displayName || user.email || user.uid,
-      approvedAt: new Date().toISOString(),
-      updatedAt: FieldValue.serverTimestamp(),
     });
 
     return res.json({ decisionId, status: 'approved' });
   } catch (error) {
     console.error('Decision approval failed:', error);
-    return res.status(500).json({ error: error instanceof Error ? error.message : 'Decision approval failed.' });
+    const typed = error as Error & { blockers?: string[]; warnings?: string[] };
+    if (typed.message === 'Decision not found.') return res.status(404).json({ error: typed.message });
+    if (typed.message === 'Decision is already approved.') return res.status(409).json({ error: typed.message });
+    if (typed.message === 'Decision is not ready for approval.') {
+      return res.status(409).json({ error: typed.message, blockers: typed.blockers ?? [], warnings: typed.warnings ?? [] });
+    }
+    return res.status(500).json({ error: typed.message || 'Decision approval failed.' });
   }
 });
