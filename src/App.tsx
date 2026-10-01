@@ -46,7 +46,7 @@ import {
 } from './types';
 import { Loader2 } from 'lucide-react';
 
-const DEFAULT_ORG_ID = 'org-kmh-main';
+const getUserOrganizationId = (uid: string) => `org-${uid}`;
 
 function EngineeringWorkspace() {
   const { user, loading } = useAuth();
@@ -111,24 +111,24 @@ function EngineeringWorkspace() {
       }
       try {
         await FirestoreService.getOrCreateOrganization(
-          DEFAULT_ORG_ID,
+          getUserOrganizationId(user!.uid),
           'KMH AI Engineering Room',
           user.uid
         );
 
         unsubscribeRooms = FirestoreService.subscribeToRooms(
-          DEFAULT_ORG_ID,
+          getUserOrganizationId(user!.uid),
           async (loadedRooms) => {
             if (loadedRooms.length === 0) {
               // Seed initial room and WPS AI benchmark investigation
               const room = await FirestoreService.createRoom(
-                DEFAULT_ORG_ID,
+                getUserOrganizationId(user!.uid),
                 'WPS Office Desktop Engineering',
                 'Kingsoft WPS Office interop, COM automation, and WPF integration room.',
                 'WPS AI (.NET 8 WPF)'
               );
               if (room) {
-                await FirestoreService.seedWpsAiInvestigation(DEFAULT_ORG_ID, room.id);
+                await FirestoreService.seedWpsAiInvestigation(getUserOrganizationId(user!.uid), room.id);
               }
             } else {
               setRooms(loadedRooms);
@@ -162,7 +162,7 @@ function EngineeringWorkspace() {
     if (!activeRoom) return;
 
     const unsubscribeInv = FirestoreService.subscribeToInvestigations(
-      DEFAULT_ORG_ID,
+      getUserOrganizationId(user!.uid),
       activeRoom.id,
       (loadedInvs) => {
         setInvestigations(loadedInvs);
@@ -190,7 +190,7 @@ function EngineeringWorkspace() {
       return;
     }
 
-    const orgId = DEFAULT_ORG_ID;
+    const orgId = getUserOrganizationId(user!.uid);
     const roomId = activeRoom.id;
     const invId = activeInvestigation.id;
 
@@ -221,7 +221,7 @@ function EngineeringWorkspace() {
   const handlePhaseChange = async (phase: InvestigationPhase) => {
     if (!activeRoom || !activeInvestigation) return;
     await FirestoreService.updateInvestigationPhase(
-      DEFAULT_ORG_ID,
+      getUserOrganizationId(user!.uid),
       activeRoom.id,
       activeInvestigation.id,
       phase
@@ -237,7 +237,7 @@ function EngineeringWorkspace() {
   }) => {
     if (!activeRoom || !activeInvestigation) return;
     await FirestoreService.createClaim(
-      DEFAULT_ORG_ID,
+      getUserOrganizationId(user!.uid),
       activeRoom.id,
       activeInvestigation.id,
       {
@@ -279,7 +279,7 @@ function EngineeringWorkspace() {
     if (!activeRoom || !activeInvestigation || !selectedClaimForChallenge) return;
     if (data.markAsDisputed) {
       await FirestoreService.addChallengeAndMarkDisputed(
-        DEFAULT_ORG_ID,
+        getUserOrganizationId(user!.uid),
         activeRoom.id,
         activeInvestigation.id,
         selectedClaimForChallenge.id,
@@ -291,7 +291,7 @@ function EngineeringWorkspace() {
       );
     } else {
       await FirestoreService.addChallengeToClaim(
-        DEFAULT_ORG_ID,
+        getUserOrganizationId(user!.uid),
         activeRoom.id,
         activeInvestigation.id,
         selectedClaimForChallenge.id,
@@ -313,7 +313,7 @@ function EngineeringWorkspace() {
   }) => {
     if (!activeRoom || !activeInvestigation || !selectedClaimForArgument) return;
     await FirestoreService.addArgumentToClaim(
-      DEFAULT_ORG_ID,
+      getUserOrganizationId(user!.uid),
       activeRoom.id,
       activeInvestigation.id,
       selectedClaimForArgument.id,
@@ -340,7 +340,7 @@ function EngineeringWorkspace() {
     if (!activeRoom || !activeInvestigation) return;
     // FirestoreService creates the evidence and atomically links it to claims.
     await FirestoreService.createEvidence(
-      DEFAULT_ORG_ID,
+      getUserOrganizationId(user!.uid),
       activeRoom.id,
       activeInvestigation.id,
       data
@@ -359,7 +359,7 @@ function EngineeringWorkspace() {
     if (!activeRoom || !activeInvestigation) return;
     // FirestoreService creates the experiment and atomically links it to claims.
     await FirestoreService.createExperiment(
-      DEFAULT_ORG_ID,
+      getUserOrganizationId(user!.uid),
       activeRoom.id,
       activeInvestigation.id,
       {
@@ -381,7 +381,7 @@ function EngineeringWorkspace() {
   }) => {
     if (!activeRoom || !activeInvestigation || !selectedExperimentForRecord) return;
 
-    const orgId = DEFAULT_ORG_ID;
+    const orgId = getUserOrganizationId(user!.uid);
     const roomId = activeRoom.id;
     const invId = activeInvestigation.id;
     const expId = selectedExperimentForRecord.id;
@@ -420,7 +420,7 @@ function EngineeringWorkspace() {
   }) => {
     if (!activeRoom || !activeInvestigation) return;
     await FirestoreService.createDecision(
-      DEFAULT_ORG_ID,
+      getUserOrganizationId(user!.uid),
       activeRoom.id,
       activeInvestigation.id,
       data
@@ -433,7 +433,7 @@ function EngineeringWorkspace() {
 
     try {
       await FirestoreService.approveDecision(
-        DEFAULT_ORG_ID,
+        getUserOrganizationId(user!.uid),
         activeRoom.id,
         activeInvestigation.id,
         decisionId,
@@ -449,7 +449,7 @@ function EngineeringWorkspace() {
     for (const claim of claims) {
       try {
         await FirestoreService.reconcileClaimStatus(
-          DEFAULT_ORG_ID,
+          getUserOrganizationId(user!.uid),
           activeRoom.id,
           activeInvestigation.id,
           claim.id
@@ -468,7 +468,7 @@ function EngineeringWorkspace() {
       return;
     }
     await FirestoreService.updateClaimStatus(
-      DEFAULT_ORG_ID,
+      getUserOrganizationId(user!.uid),
       activeRoom.id,
       activeInvestigation.id,
       claimId,
@@ -480,7 +480,7 @@ function EngineeringWorkspace() {
   const handleSendMessage = async (role: AgentRole, content: string) => {
     if (!activeRoom || !activeInvestigation) return;
     await FirestoreService.addMessage(
-      DEFAULT_ORG_ID,
+      getUserOrganizationId(user!.uid),
       activeRoom.id,
       activeInvestigation.id,
       {
@@ -510,7 +510,7 @@ function EngineeringWorkspace() {
       );
 
       await FirestoreService.addMessage(
-        DEFAULT_ORG_ID,
+        getUserOrganizationId(user!.uid),
         activeRoom.id,
         activeInvestigation.id,
         {
@@ -527,7 +527,7 @@ function EngineeringWorkspace() {
     } catch (err) {
       console.error('Failed to run Gemini analysis:', err);
       await FirestoreService.addMessage(
-        DEFAULT_ORG_ID,
+        getUserOrganizationId(user!.uid),
         activeRoom.id,
         activeInvestigation.id,
         {
@@ -553,7 +553,7 @@ function EngineeringWorkspace() {
   }) => {
     if (!activeRoom) return;
     const inv = await FirestoreService.createInvestigation(
-      DEFAULT_ORG_ID,
+      getUserOrganizationId(user!.uid),
       activeRoom.id,
       data.title,
       data.question,
@@ -571,7 +571,7 @@ function EngineeringWorkspace() {
     projectTarget: string;
   }) => {
     const room = await FirestoreService.createRoom(
-      DEFAULT_ORG_ID,
+      getUserOrganizationId(user!.uid),
       data.name,
       data.description,
       data.projectTarget
@@ -582,7 +582,7 @@ function EngineeringWorkspace() {
   // Handler: Reset / Re-seed Benchmark WPS AI Investigation
   const handleResetSeedData = async () => {
     if (!activeRoom) return;
-    const inv = await FirestoreService.seedWpsAiInvestigation(DEFAULT_ORG_ID, activeRoom.id);
+    const inv = await FirestoreService.seedWpsAiInvestigation(getUserOrganizationId(user!.uid), activeRoom.id);
     setActiveInvestigation(inv);
     setCurrentTab('room');
   };
