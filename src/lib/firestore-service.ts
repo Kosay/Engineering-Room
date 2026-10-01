@@ -374,6 +374,42 @@ export class FirestoreService {
     }
   }
 
+  /**
+   * Update a non-terminal claim status explicitly.
+   * Terminal epistemic states (verified/disproved) are derived only by
+   * trusted reconciliation and are intentionally rejected here.
+   */
+  public static async updateClaimStatus(
+    orgId: string,
+    roomId: string,
+    invId: string,
+    claimId: string,
+    status: Exclude<Claim['status'], 'verified' | 'disproved'>
+  ): Promise<void> {
+    const db = getFirebaseDb();
+    const claimPath = `organizations/${orgId}/rooms/${roomId}/investigations/${invId}/claims/${claimId}`;
+    const claimRef = doc(
+      db,
+      'organizations',
+      orgId,
+      'rooms',
+      roomId,
+      'investigations',
+      invId,
+      'claims',
+      claimId
+    );
+
+    try {
+      await updateDoc(claimRef, {
+        status,
+        updatedAt: new Date().toISOString(),
+      });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, claimPath);
+    }
+  }
+
   public static async reconcileClaimStatus(
     orgId: string,
     roomId: string,
