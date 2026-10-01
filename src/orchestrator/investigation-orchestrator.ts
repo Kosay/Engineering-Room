@@ -17,6 +17,16 @@ import { AgentRunner } from './agent-runner';
 import { ClaimManager } from './claim-manager';
 import { DecisionManager, DecisionReadiness } from './decision-manager';
 import { ProviderAnalysisResult } from '../providers/ai-provider.interface';
+import { providerRegistry } from '../providers/provider-registry';
+
+
+export interface AgentPanelResult {
+  providerId: AIProviderId;
+  role: AgentRole;
+  status: 'completed' | 'failed';
+  result?: ProviderAnalysisResult;
+  error?: string;
+}
 
 export class InvestigationOrchestrator {
   /**
@@ -39,6 +49,54 @@ export class InvestigationOrchestrator {
     );
 
     return await AgentRunner.runAgent(providerId, role, context);
+  }
+
+  /**
+   * Runs independent analyses in parallel.
+   * No provider is treated as authoritative; failures are preserved as explicit results.
+   */
+  public static async runIndependentPanel(
+    investigation: Investigation,
+    claims: Claim[],
+    evidence: Evidence[],
+    experiments: Experiment[],
+    providerIds?: AIProviderId[]
+  ): Promise<AgentPanelResult[]> {
+    const context = ContextBuilder.buildContext(
+      investigation,
+      claims,
+      evidence,
+      experiments
+    );
+
+    const requestedProviders = providerIds?.length
+      ? providerIds
+      : providerRegistry.getConnectedProviders().map((provider) => provider.id);
+
+    if (requestedProviders.length === 0) {
+      throw new Error('No connected AI providers are available for an independent panel.');
+    }
+
+    const jobs = requestedProviders.map(async (providerId): Promise<AgentPanelResult> => {
+      const provider = providerRegistry.getProvider(providerId);
+      const role = provider.supportedRoles.includes('Independent Analyst')
+        ? 'Independent Analyst'
+        : provider.supportedRoles[0];
+
+      try {
+        const result = await AgentRunner.runAgent(providerId, role, context);
+        return { providerId, role, status: 'completed', result };
+      } catch (error) {
+        return {
+          providerId,
+          role,
+          status: 'failed',
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    });
+
+    return await Promise.all(jobs);
   }
 
   /**
