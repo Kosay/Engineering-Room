@@ -23,31 +23,43 @@ epistemicRouter.post('/reconcile-claim', async (req, res) => {
 
     const base = `organizations/${orgId}/rooms/${roomId}/investigations/${invId}`;
     const claimRef = db.doc(`${base}/claims/${claimId}`);
-    const [claimSnap, evidenceSnap, experimentSnap] = await Promise.all([
-      claimRef.get(),
-      db.collection(`${base}/evidence`).get(),
-      db.collection(`${base}/experiments`).get(),
-    ]);
 
-    if (!claimSnap.exists) return res.status(404).json({ error: 'Claim not found.' });
+    let result: { status: Claim['status']; rationale: string };
+    await db.runTransaction(async (tx) => {
+      const claimSnap = await tx.get(claimRef);
+      if (!claimSnap.exists) throw new Error('Claim not found.');
 
-    const claim = { id: claimSnap.id, ...claimSnap.data() } as Claim;
-    const evidence = evidenceSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Evidence)
-      .filter((item) => claim.relatedEvidenceIds.includes(item.id));
-    const experiments = experimentSnap.docs.map((d) => ({ id: d.id, ...d.data() }) as Experiment)
-      .filter((item) => claim.relatedExperimentIds.includes(item.id));
+      const [evidenceSnap, experimentSnap] = await Promise.all([
+        tx.get(db.collection(`${base}/evidence`)),
+        tx.get(db.collection(`${base}/experiments`)),
+      ]);
 
-    const evaluation = ClaimManager.evaluateStatus(claim, evidence, experiments);
+      const claim = { id: claimSnap.id, ...claimSnap.data() } as Claim;
+      const evidence = evidenceSnap.docs
+        .map((d) => ({ id: d.id, ...d.data() }) as Evidence)
+        .filter((item) => claim.relatedEvidenceIds.includes(item.id));
+      const experiments = experimentSnap.docs
+        .map((d) => ({ id: d.id, ...d.data() }) as Experiment)
+        .filter((item) => claim.relatedExperimentIds.includes(item.id));
 
-    await claimRef.update({
-      status: evaluation.recommendedStatus,
-      epistemicRationale: evaluation.rationale,
-      updatedAt: FieldValue.serverTimestamp(),
+      const evaluation = ClaimManager.evaluateStatus(claim, evidence, experiments);
+      result = {
+        status: evaluation.recommendedStatus,
+        rationale: evaluation.rationale,
+      };
+
+      tx.update(claimRef, {
+        status: evaluation.recommendedStatus,
+        epistemicRationale: evaluation.rationale,
+        updatedAt: FieldValue.serverTimestamp(),
+      });
     });
 
-    return res.json({ claimId, status: evaluation.recommendedStatus, rationale: evaluation.rationale });
+    return res.json({ claimId, status: result!.status, rationale: result!.rationale });
   } catch (error) {
     console.error('Epistemic reconciliation failed:', error);
-    return res.status(500).json({ error: error instanceof Error ? error.message : 'Reconciliation failed.' });
+    const message = error instanceof Error ? error.message : 'Reconciliation failed.';
+    if (message === 'Claim not found.') return res.status(404).json({ error: message });
+    return res.status(500).json({ error: message });
   }
 });
