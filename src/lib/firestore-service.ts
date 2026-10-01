@@ -384,6 +384,88 @@ export class FirestoreService {
    * trusted reconciliation and are intentionally rejected here.
    */
 
+  public static async addChallengeAndMarkDisputed(
+    orgId: string,
+    roomId: string,
+    invId: string,
+    claimId: string,
+    challenge: { challenger: string; role: AgentRole; challenge: string }
+  ): Promise<void> {
+    const user = getFirebaseAuth().currentUser;
+    if (!user) throw new Error('Authentication is required to dispute a claim.');
+    const claimPath = `organizations/${orgId}/rooms/${roomId}/investigations/${invId}/claims/${claimId}`;
+    try {
+      const idToken = await user.getIdToken();
+      const response = await fetch('/api/claims/challenge', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ orgId, roomId, invId, claimId, challenge }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || `Claim challenge failed with status ${response.status}`);
+      }
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, claimPath);
+    }
+  }
+
+  public static async addChallengeToClaim(
+    orgId: string,
+    roomId: string,
+    invId: string,
+    claimId: string,
+    challenge: { challenger: string; role: AgentRole; challenge: string }
+  ): Promise<void> {
+    const db = getFirebaseDb();
+    const claimPath = `organizations/${orgId}/rooms/${roomId}/investigations/${invId}/claims/${claimId}`;
+    const claimRef = doc(db, 'organizations', orgId, 'rooms', roomId, 'investigations', invId, 'claims', claimId);
+    try {
+      await updateDoc(claimRef, {
+        challenges: arrayUnion({
+          id: `ch-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          challenger: challenge.challenger,
+          role: challenge.role,
+          challenge: challenge.challenge,
+          timestamp: new Date().toISOString(),
+        }),
+        updatedAt: new Date().toISOString(),
+      });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, claimPath);
+    }
+  }
+
+  public static async addArgumentToClaim(
+    orgId: string,
+    roomId: string,
+    invId: string,
+    claimId: string,
+    argument: { author: string; role: AgentRole; text: string; type: 'pro' | 'contra' }
+  ): Promise<void> {
+    const db = getFirebaseDb();
+    const claimPath = `organizations/${orgId}/rooms/${roomId}/investigations/${invId}/claims/${claimId}`;
+    const claimRef = doc(db, 'organizations', orgId, 'rooms', roomId, 'investigations', invId, 'claims', claimId);
+    try {
+      await updateDoc(claimRef, {
+        arguments: arrayUnion({
+          id: `arg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          author: argument.author,
+          role: argument.role,
+          text: argument.text,
+          type: argument.type,
+          timestamp: new Date().toISOString(),
+        }),
+        updatedAt: new Date().toISOString(),
+      });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, claimPath);
+    }
+  }
+
   // Evidence
   public static subscribeToEvidence(
     orgId: string,
