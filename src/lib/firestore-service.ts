@@ -279,26 +279,25 @@ export class FirestoreService {
     invId: string,
     phase: Investigation['phase']
   ): Promise<void> {
-    const db = getFirebaseDb();
+    const user = getFirebaseAuth().currentUser;
+    if (!user) throw new Error('Authentication is required for phase transitions.');
+
     const invPath = `organizations/${orgId}/rooms/${roomId}/investigations/${invId}`;
-    const invRef = doc(
-      db,
-      'organizations',
-      orgId,
-      'rooms',
-      roomId,
-      'investigations',
-      invId
-    );
+
     try {
-      const snap = await getDoc(invRef);
-      if (!snap.exists()) throw new Error('Investigation not found.');
-      const current = snap.data() as Investigation;
-      InvestigationManager.assertTransition(current.phase, phase);
-      await updateDoc(invRef, {
-        phase,
-        updatedAt: new Date().toISOString(),
+      const idToken = await user.getIdToken();
+      const response = await fetch('/api/investigations/transition-phase', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ orgId, roomId, invId, phase }),
       });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || `Phase transition failed with status ${response.status}`);
+      }
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, invPath);
     }
