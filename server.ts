@@ -7,6 +7,7 @@ import { epistemicRouter } from './server/epistemic-router';
 import { decisionRouter } from './server/decision-router';
 import { experimentRouter } from './server/experiment-router';
 import { investigationRouter } from './server/investigation-router';
+import { claimRouter } from './server/claim-router';
 
 dotenv.config();
 
@@ -22,6 +23,7 @@ app.use('/api/epistemic', epistemicRouter);
 app.use('/api/decisions', decisionRouter);
 app.use('/api/experiments', experimentRouter);
 app.use('/api/investigations', investigationRouter);
+app.use('/api/claims', claimRouter);
 
 app.use(express.static(path.join(__dirname, 'dist')));
 
