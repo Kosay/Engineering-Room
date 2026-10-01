@@ -9,7 +9,7 @@ export const decisionRouter = Router();
 
 decisionRouter.post('/approve', async (req, res) => {
   try {
-    const { orgId, roomId, invId, decisionId, approvedBy } = req.body ?? {};
+    const { orgId, roomId, invId, decisionId } = req.body ?? {};
     if (![orgId, roomId, invId, decisionId].every((value) => typeof value === 'string' && value.length > 0)) {
       return res.status(400).json({ error: 'orgId, roomId, invId and decisionId are required.' });
     }
@@ -58,7 +58,7 @@ decisionRouter.post('/approve', async (req, res) => {
 
     await decisionRef.update({
       status: 'approved',
-      approvedBy: approvedBy || user.displayName || 'Lead Engineer',
+      approvedBy: user.displayName || user.email || user.uid,
       approvedAt: new Date().toISOString(),
       updatedAt: FieldValue.serverTimestamp(),
     });
