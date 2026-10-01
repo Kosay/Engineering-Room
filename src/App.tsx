@@ -277,25 +277,29 @@ function EngineeringWorkspace() {
     markAsDisputed: boolean;
   }) => {
     if (!activeRoom || !activeInvestigation || !selectedClaimForChallenge) return;
-    await FirestoreService.addChallengeToClaim(
-      DEFAULT_ORG_ID,
-      activeRoom.id,
-      activeInvestigation.id,
-      selectedClaimForChallenge.id,
-      {
-        challenger: data.challenger,
-        role: data.role,
-        challenge: data.challenge,
-      }
-    );
-
     if (data.markAsDisputed) {
-      await FirestoreService.updateClaim(
+      await FirestoreService.addChallengeAndMarkDisputed(
         DEFAULT_ORG_ID,
         activeRoom.id,
         activeInvestigation.id,
         selectedClaimForChallenge.id,
-        { status: 'disputed' }
+        {
+          challenger: data.challenger,
+          role: data.role,
+          challenge: data.challenge,
+        }
+      );
+    } else {
+      await FirestoreService.addChallengeToClaim(
+        DEFAULT_ORG_ID,
+        activeRoom.id,
+        activeInvestigation.id,
+        selectedClaimForChallenge.id,
+        {
+          challenger: data.challenger,
+          role: data.role,
+          challenge: data.challenge,
+        }
       );
     }
   };
@@ -334,27 +338,13 @@ function EngineeringWorkspace() {
     collectedBy: { id: string; name: string; type: 'human' | 'agent' };
   }) => {
     if (!activeRoom || !activeInvestigation) return;
-    const newEv = await FirestoreService.createEvidence(
+    // FirestoreService creates the evidence and atomically links it to claims.
+    await FirestoreService.createEvidence(
       DEFAULT_ORG_ID,
       activeRoom.id,
       activeInvestigation.id,
       data
     );
-
-    // Link evidence back to claims
-    for (const cId of data.relatedClaimIds) {
-      const claim = claims.find((c) => c.id === cId);
-      if (claim) {
-        const updatedEvIds = [...(claim.relatedEvidenceIds || []), newEv.id];
-        await FirestoreService.updateClaim(
-          DEFAULT_ORG_ID,
-          activeRoom.id,
-          activeInvestigation.id,
-          cId,
-          { relatedEvidenceIds: updatedEvIds }
-        );
-      }
-    }
   };
 
   // Handler: Create Experiment
@@ -367,7 +357,8 @@ function EngineeringWorkspace() {
     relatedClaimIds: string[];
   }) => {
     if (!activeRoom || !activeInvestigation) return;
-    const newExp = await FirestoreService.createExperiment(
+    // FirestoreService creates the experiment and atomically links it to claims.
+    await FirestoreService.createExperiment(
       DEFAULT_ORG_ID,
       activeRoom.id,
       activeInvestigation.id,
@@ -378,21 +369,6 @@ function EngineeringWorkspace() {
         artifacts: [],
       }
     );
-
-    // Link experiment to claims
-    for (const cId of data.relatedClaimIds) {
-      const claim = claims.find((c) => c.id === cId);
-      if (claim) {
-        const updatedExpIds = [...(claim.relatedExperimentIds || []), newExp.id];
-        await FirestoreService.updateClaim(
-          DEFAULT_ORG_ID,
-          activeRoom.id,
-          activeInvestigation.id,
-          cId,
-          { relatedExperimentIds: updatedExpIds }
-        );
-      }
-    }
   };
 
   // Handler: Record Experiment Result
@@ -430,12 +406,6 @@ function EngineeringWorkspace() {
     });
 
     // Experiment results are inputs to reconciliation, not direct epistemic transitions.
-    for (const claimId of selectedExperimentForRecord.relatedClaimIds || []) {
-      const targetClaim = claims.find((c) => c.id === claimId);
-      if (!targetClaim) continue;
-
-      // Do not infer VERIFIED/DISPROVED from a shared experiment outcome.
-    }
   };
 
   // Handler: Create Decision
