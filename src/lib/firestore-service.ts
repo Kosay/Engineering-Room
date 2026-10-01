@@ -483,6 +483,49 @@ export class FirestoreService {
     }
   }
 
+  /**
+   * Atomically records a challenge and marks the claim disputed when the
+   * challenger explicitly requests that epistemic transition.
+   */
+  public static async addChallengeAndMarkDisputed(
+    orgId: string,
+    roomId: string,
+    invId: string,
+    claimId: string,
+    challenge: Omit<ClaimChallenge, 'id' | 'timestamp'>
+  ): Promise<void> {
+    const db = getFirebaseDb();
+    const claimPath = `organizations/${orgId}/rooms/${roomId}/investigations/${invId}/claims/${claimId}`;
+    const claimRef = doc(
+      db,
+      'organizations',
+      orgId,
+      'rooms',
+      roomId,
+      'investigations',
+      invId,
+      'claims',
+      claimId
+    );
+
+    try {
+      const snap = await getDoc(claimRef);
+      if (!snap.exists()) return;
+
+      await updateDoc(claimRef, {
+        challenges: arrayUnion({
+          id: `ch-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+          ...challenge,
+          timestamp: new Date().toISOString(),
+        }),
+        status: 'disputed',
+        updatedAt: new Date().toISOString(),
+      });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, claimPath);
+    }
+  }
+
   // Evidence
   public static subscribeToEvidence(
     orgId: string,
