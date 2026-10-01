@@ -24,7 +24,7 @@ epistemicRouter.post('/reconcile-claim', async (req, res) => {
     const base = `organizations/${orgId}/rooms/${roomId}/investigations/${invId}`;
     const claimRef = db.doc(`${base}/claims/${claimId}`);
 
-    let result: { status: Claim['status']; rationale: string };
+    let result: { status: Claim['status']; rationale: string } | null = null;
     await db.runTransaction(async (tx) => {
       const claimSnap = await tx.get(claimRef);
       if (!claimSnap.exists) throw new Error('Claim not found.');
