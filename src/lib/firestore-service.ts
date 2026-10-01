@@ -34,6 +34,7 @@ import {
   Organization,
 } from '../types';
 import { ClaimManager } from '../orchestrator/claim-manager';
+import { InvestigationManager } from '../orchestrator/investigation-manager';
 
 export enum OperationType {
   CREATE = 'create',
@@ -290,6 +291,10 @@ export class FirestoreService {
       invId
     );
     try {
+      const snap = await getDoc(invRef);
+      if (!snap.exists()) throw new Error('Investigation not found.');
+      const current = snap.data() as Investigation;
+      InvestigationManager.assertTransition(current.phase, phase);
       await updateDoc(invRef, {
         phase,
         updatedAt: new Date().toISOString(),
@@ -761,31 +766,50 @@ export class FirestoreService {
     }
   }
 
-  public static async updateExperiment(
+  public static async updateExperimentDraft(
     orgId: string,
     roomId: string,
     invId: string,
     expId: string,
-    updates: Partial<Experiment>
+    updates: Pick<Experiment, 'title' | 'objective' | 'environment' | 'commandOrProcedure' | 'expectedResult' | 'relatedClaimIds'>
   ): Promise<void> {
     const db = getFirebaseDb();
     const expPath = `organizations/${orgId}/rooms/${roomId}/investigations/${invId}/experiments/${expId}`;
-    const expRef = doc(
-      db,
-      'organizations',
-      orgId,
-      'rooms',
-      roomId,
-      'investigations',
-      invId,
-      'experiments',
-      expId
-    );
+    const expRef = doc(db, 'organizations', orgId, 'rooms', roomId, 'investigations', invId, 'experiments', expId);
     try {
       await updateDoc(expRef, {
         ...updates,
         updatedAt: new Date().toISOString(),
       });
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, expPath);
+    }
+  }
+
+  public static async recordExperimentResult(
+    orgId: string,
+    roomId: string,
+    invId: string,
+    expId: string,
+    result: Pick<Experiment, 'outcome' | 'actualResult' | 'executedBy' | 'executionTimestamp' | 'artifacts'>
+  ): Promise<void> {
+    const user = getFirebaseAuth().currentUser;
+    if (!user) throw new Error('Authentication is required to record an experiment result.');
+
+    try {
+      const idToken = await user.getIdToken();
+      const response = await fetch('/api/experiments/record-result', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ orgId, roomId, invId, expId, result }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || `Recording experiment result failed with status ${response.status}`);
+      }
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, expPath);
     }
