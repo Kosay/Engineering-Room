@@ -6,6 +6,7 @@ import { aiRouter } from './server/ai-router';
 import { epistemicRouter } from './server/epistemic-router';
 import { decisionRouter } from './server/decision-router';
 import { experimentRouter } from './server/experiment-router';
+import { investigationRouter } from './server/investigation-router';
 
 dotenv.config();
 
@@ -20,6 +21,7 @@ app.use('/api/ai', aiRouter);
 app.use('/api/epistemic', epistemicRouter);
 app.use('/api/decisions', decisionRouter);
 app.use('/api/experiments', experimentRouter);
+app.use('/api/investigations', investigationRouter);
 
 app.use(express.static(path.join(__dirname, 'dist')));
 
