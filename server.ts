@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import { aiRouter } from './server/ai-router';
 import { epistemicRouter } from './server/epistemic-router';
 import { decisionRouter } from './server/decision-router';
+import { experimentRouter } from './server/experiment-router';
 
 dotenv.config();
 
@@ -18,6 +19,7 @@ app.use(express.json({ limit: '2mb' }));
 app.use('/api/ai', aiRouter);
 app.use('/api/epistemic', epistemicRouter);
 app.use('/api/decisions', decisionRouter);
+app.use('/api/experiments', experimentRouter);
 
 app.use(express.static(path.join(__dirname, 'dist')));
 
