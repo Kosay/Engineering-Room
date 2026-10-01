@@ -4,12 +4,11 @@ import { getAdminDb } from './firebase-admin';
 import { requireFirebaseUser } from './auth';
 import type { Experiment, ExperimentArtifact, ExperimentOutcome } from '../src/types';
 
-const ALLOWED_OUTCOMES: ExperimentOutcome[] = [
+const RECORDABLE_OUTCOMES: ExperimentOutcome[] = [
   'passed',
   'failed',
   'partial',
   'inconclusive',
-  'not_run',
 ];
 
 export const experimentRouter = Router();
@@ -31,7 +30,7 @@ experimentRouter.post('/record-result', async (req, res) => {
     }
 
     const outcome = result.outcome as ExperimentOutcome;
-    if (!ALLOWED_OUTCOMES.includes(outcome)) {
+    if (!RECORDABLE_OUTCOMES.includes(outcome)) {
       return res.status(400).json({ error: 'Invalid experiment outcome.' });
     }
 
@@ -77,10 +76,7 @@ experimentRouter.post('/record-result', async (req, res) => {
         outcome,
         actualResult: result.actualResult.trim(),
         executedBy: result.executedBy.trim(),
-        executionTimestamp:
-          typeof result.executionTimestamp === 'string'
-            ? result.executionTimestamp
-            : new Date().toISOString(),
+        executionTimestamp: new Date().toISOString(),
         artifacts,
         updatedAt: FieldValue.serverTimestamp(),
       });
