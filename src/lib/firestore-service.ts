@@ -25,6 +25,7 @@ import {
   Claim,
   ClaimArgument,
   ClaimChallenge,
+  AgentRole,
   Decision,
   EngineeringRoom,
   Evidence,
@@ -384,6 +385,37 @@ export class FirestoreService {
    * trusted reconciliation and are intentionally rejected here.
    */
 
+  public static async reconcileClaimStatus(
+    orgId: string,
+    roomId: string,
+    invId: string,
+    claimId: string
+  ): Promise<Claim['status']> {
+    const user = getFirebaseAuth().currentUser;
+    if (!user) throw new Error('Authentication is required to reconcile a claim.');
+
+    const claimPath = `organizations/${orgId}/rooms/${roomId}/investigations/${invId}/claims/${claimId}`;
+    try {
+      const idToken = await user.getIdToken();
+      const response = await fetch('/api/epistemic/reconcile-claim', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${idToken}`,
+        },
+        body: JSON.stringify({ orgId, roomId, invId, claimId }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || `Claim reconciliation failed with status ${response.status}`);
+      }
+      return payload.recommendedStatus as Claim['status'];
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, claimPath);
+      throw err;
+    }
+  }
+
   public static async addChallengeAndMarkDisputed(
     orgId: string,
     roomId: string,
@@ -694,6 +726,7 @@ export class FirestoreService {
   ): Promise<void> {
     const user = getFirebaseAuth().currentUser;
     if (!user) throw new Error('Authentication is required to record an experiment result.');
+    const expPath = `organizations/${orgId}/rooms/${roomId}/investigations/${invId}/experiments/${expId}`;
 
     try {
       const idToken = await user.getIdToken();
