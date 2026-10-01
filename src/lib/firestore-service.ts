@@ -895,7 +895,6 @@ export class FirestoreService {
     roomId: string,
     invId: string,
     decisionId: string,
-    approvedBy?: string
   ): Promise<void> {
     const user = getFirebaseAuth().currentUser;
     if (!user) throw new Error('Authentication is required for decision approval.');
@@ -908,7 +907,7 @@ export class FirestoreService {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${idToken}`,
         },
-        body: JSON.stringify({ orgId, roomId, invId, decisionId, approvedBy }),
+        body: JSON.stringify({ orgId, roomId, invId, decisionId }),
       });
 
       const payload = await response.json().catch(() => ({}));
