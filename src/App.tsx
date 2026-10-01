@@ -460,19 +460,14 @@ function EngineeringWorkspace() {
     }
   };
 
-  // Handler: Update Claim Status directly
-  const handleUpdateClaimStatus = async (claimId: string, newStatus: EpistemicStatus) => {
+  // Handler: Apply a single reconciled claim status.
+  const handleUpdateClaimStatus = async (claimId: string, _newStatus: EpistemicStatus) => {
     if (!activeRoom || !activeInvestigation) return;
-    if (newStatus === 'verified' || newStatus === 'disproved') {
-      console.warn('Verified/disproved must be derived by reconciliation.');
-      return;
-    }
-    await FirestoreService.updateClaimStatus(
+    await FirestoreService.reconcileClaimStatus(
       getUserOrganizationId(user!.uid),
       activeRoom.id,
       activeInvestigation.id,
-      claimId,
-      newStatus
+      claimId
     );
   };
 
