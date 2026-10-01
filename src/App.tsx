@@ -469,12 +469,12 @@ function EngineeringWorkspace() {
       console.warn('Verified/disproved must be derived by reconciliation.');
       return;
     }
-    await FirestoreService.updateClaim(
+    await FirestoreService.updateClaimStatus(
       DEFAULT_ORG_ID,
       activeRoom.id,
       activeInvestigation.id,
       claimId,
-      { status: newStatus }
+      newStatus
     );
   };
 
