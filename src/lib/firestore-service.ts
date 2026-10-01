@@ -926,35 +926,6 @@ export class FirestoreService {
     }
   }
 
-  public static async updateDecision(
-    orgId: string,
-    roomId: string,
-    invId: string,
-    decId: string,
-    updates: Partial<Decision>
-  ): Promise<void> {
-    const db = getFirebaseDb();
-    const decPath = `organizations/${orgId}/rooms/${roomId}/investigations/${invId}/decisions/${decId}`;
-    const decRef = doc(
-      db,
-      'organizations',
-      orgId,
-      'rooms',
-      roomId,
-      'investigations',
-      invId,
-      'decisions',
-      decId
-    );
-    try {
-      await updateDoc(decRef, {
-        ...updates,
-        updatedAt: new Date().toISOString(),
-      });
-    } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, decPath);
-    }
-  }
 
   // Messages
   public static subscribeToMessages(
