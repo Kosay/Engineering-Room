@@ -397,7 +397,6 @@ function EngineeringWorkspace() {
     }
 
     await FirestoreService.recordExperimentResult(orgId, roomId, invId, expId, {
-      status: 'completed',
       outcome: data.outcome,
       actualResult: data.actualResult,
       executedBy: data.executedBy,
