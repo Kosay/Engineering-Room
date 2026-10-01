@@ -396,7 +396,7 @@ function EngineeringWorkspace() {
       });
     }
 
-    await FirestoreService.updateExperiment(orgId, roomId, invId, expId, {
+    await FirestoreService.recordExperimentResult(orgId, roomId, invId, expId, {
       status: 'completed',
       outcome: data.outcome,
       actualResult: data.actualResult,
@@ -438,7 +438,6 @@ function EngineeringWorkspace() {
         activeRoom.id,
         activeInvestigation.id,
         decisionId,
-        user?.displayName || 'Lead Engineer'
       );
     } catch (error) {
       console.error('Decision approval failed:', error);
