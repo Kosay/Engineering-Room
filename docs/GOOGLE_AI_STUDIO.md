@@ -58,3 +58,13 @@ Supported provider IDs:
 A missing provider key is an explicit provider failure, not a fake successful result. The independent panel preserves these failures so the investigation can distinguish unavailable agents from completed analyses.
 
 Do not move these credentials into `VITE_*` variables, browser localStorage, Firestore, or committed source files.
+
+## Investigation execution contract
+
+When implementing UI actions for the investigation lifecycle:
+1. Independent analysis uses `InvestigationOrchestrator.runAndPersistIndependentPanel(...)`.
+2. The panel writes only to the canonical `messages`, `claims`, and `experiments` subcollections.
+3. Adversarial review uses `InvestigationOrchestrator.runAdversarialReview(...)`.
+4. Review challenges are persisted on the relevant claim and may make it `disputed`.
+5. Do not add an `agents` collection or store provider secrets in Firestore.
+6. Do not automatically mark a claim `verified` or `disproved` from model output.
