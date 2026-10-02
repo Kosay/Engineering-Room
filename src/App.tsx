@@ -446,17 +446,14 @@ function EngineeringWorkspace() {
   // Handler: Reconcile All Claims
   const handleReconcileAll = async () => {
     if (!activeRoom || !activeInvestigation) return;
-    for (const claim of claims) {
-      try {
-        await FirestoreService.reconcileClaimStatus(
-          getUserOrganizationId(user!.uid),
-          activeRoom.id,
-          activeInvestigation.id,
-          claim.id
-        );
-      } catch (error) {
-        console.error('Failed to reconcile claim', claim.id, error);
-      }
+    try {
+      await InvestigationOrchestrator.reconcileInvestigation(
+        getUserOrganizationId(user!.uid),
+        activeRoom.id,
+        activeInvestigation.id
+      );
+    } catch (error) {
+      console.error('Investigation reconciliation failed:', error);
     }
   };
 
