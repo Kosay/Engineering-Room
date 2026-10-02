@@ -294,6 +294,123 @@ aiRouter.post('/independent-panel', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * Runs adversarial review against the current Firestore claims.
+ * Results are persisted as claim challenges and agent messages.
+ */
+aiRouter.post('/adversarial-review', async (req: Request, res: Response) => {
+  try {
+    const user = await requireFirebaseUser(req);
+    const { orgId, roomId, invId, providerIds, reviewRunId } = req.body as {
+      orgId?: unknown; roomId?: unknown; invId?: unknown;
+      providerIds?: unknown; reviewRunId?: unknown;
+    };
+
+    if (![orgId, roomId, invId, reviewRunId].every(isString)) {
+      return res.status(400).json({ error: 'orgId, roomId, invId and reviewRunId are required.' });
+    }
+
+    const state = await loadInvestigationState(orgId, roomId, invId);
+    if (state.orgSnap.data()?.ownerId !== user.uid) {
+      return res.status(403).json({ error: 'Organization access denied.' });
+    }
+
+    const built = await buildServerContext(orgId, roomId, invId);
+    if (built.claims.length === 0) {
+      return res.status(400).json({ error: 'No claims exist to review.' });
+    }
+
+    const requested = Array.isArray(providerIds)
+      ? providerIds.filter(isProviderId)
+      : (['gemini', 'openai', 'anthropic', 'deepseek'] as AIProviderId[]);
+
+    const results = await Promise.all(requested.map(async (providerId) => {
+      const role: AgentRole = 'Adversarial Reviewer';
+      try {
+        const result = await runProviderAnalysis(providerId, built.context, role);
+        return { providerId, role, status: 'completed' as const, result };
+      } catch (error) {
+        return {
+          providerId, role, status: 'failed' as const,
+          error: error instanceof Error ? error.message : String(error),
+        };
+      }
+    }));
+
+    const successful = results.filter((r) => r.status === 'completed' && r.result);
+    if (successful.length === 0) return res.status(502).json({ reviewRunId, results });
+
+    const batch = state.db.batch();
+    const claimRefs = new Map<string, DocumentReference>();
+    for (const claim of built.claims) {
+      claimRefs.set(claim.statement.trim().toLowerCase(),
+        state.invRef.collection('claims').doc(claim.id));
+    }
+
+    const now = new Date().toISOString();
+    const pending = new Map<string, { ref: DocumentReference; challenges: any[] }>();
+
+    for (const item of successful) {
+      const result = item.result!;
+      const messageRef = state.invRef.collection('messages').doc(
+        stableId('review', `${reviewRunId}:${item.providerId}`)
+      );
+
+      batch.set(messageRef, {
+        id: messageRef.id,
+        organizationId: orgId,
+        roomId,
+        investigationId: invId,
+        sender: {
+          id: `agent-${item.providerId}`,
+          name: item.providerId,
+          role: item.role,
+          type: 'agent',
+          provider: item.providerId,
+        },
+        content: result.analysisText,
+        timestamp: now,
+      }, { merge: false });
+
+      for (const challenge of result.counterChallenges) {
+        const key = challenge.targetClaimStatement.trim().toLowerCase();
+        const ref = claimRefs.get(key);
+        if (!ref) continue;
+
+        const current = pending.get(ref.path) || { ref, challenges: [] };
+        current.challenges.push({
+          id: stableId('ch', `${reviewRunId}:${item.providerId}:${key}`),
+          challenger: item.providerId,
+          role: item.role,
+          challenge: challenge.challenge +
+            (challenge.counterHypothesis ? ` Counter-hypothesis: ${challenge.counterHypothesis}` : ''),
+          timestamp: now,
+        });
+        pending.set(ref.path, current);
+      }
+    }
+
+    for (const update of pending.values()) {
+      batch.update(update.ref, {
+        challenges: FieldValue.arrayUnion(...update.challenges),
+        status: 'disputed',
+        updatedAt: now,
+      });
+    }
+
+    await batch.commit();
+    return res.json({
+      reviewRunId,
+      results,
+      challengedClaims: Array.from(pending.keys()),
+    });
+  } catch (err: any) {
+    console.error('Error handling /api/ai/adversarial-review:', err);
+    const status = err?.message?.includes('Firebase ID token') ? 401 : 500;
+    return res.status(status).json({ error: err?.message || 'Adversarial review failed.' });
+  }
+});
+
 aiRouter.get('/providers', async (req: Request, res: Response) => {
   try {
     await requireFirebaseUser(req);
