@@ -191,6 +191,41 @@ export class InvestigationOrchestrator {
   }
 
   /**
+   * Runs the trusted reconciliation engine against authoritative Firestore state.
+   * The server derives epistemic status and, when currently in reconciliation,
+   * advances the investigation to the next lifecycle phase.
+   */
+  public static async reconcileInvestigation(
+    orgId: string,
+    roomId: string,
+    investigationId: string
+  ): Promise<{
+    runId: string;
+    changes: Array<{ claimId: string; oldStatus: Claim['status']; newStatus: Claim['status']; rationale: string }>;
+    nextPhase: Investigation['phase'];
+    phaseChanged: boolean;
+  }> {
+    const user = (await import('../lib/firebase')).getFirebaseAuth().currentUser;
+    if (!user) throw new Error('Authentication is required for reconciliation.');
+
+    const runId = 'reconcile-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+    const idToken = await user.getIdToken();
+    const response = await fetch('/api/epistemic/reconcile', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: 'Bearer ' + idToken,
+      },
+      body: JSON.stringify({ orgId, roomId, invId: investigationId, runId }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(payload.error || 'Investigation reconciliation failed.');
+    }
+    return payload;
+  }
+
+  /**
    * Validates whether a decision can be approved.
    */
   public static assessDecisionReadiness(
