@@ -182,3 +182,16 @@ Decision {
 - Claim.relatedExperimentIds references experiment documents in the same investigation.
 - Evidence.relatedClaimIds and Experiment.relatedClaimIds point back to claims.
 - Messages may reference claims and evidence.
+## AI orchestration persistence
+
+The independent panel and adversarial review do **not** create an `agents` collection.
+
+Completed agent output is persisted using the canonical investigation collections:
+- `messages/{messageId}` stores the agent's analysis text and identifies `sender.provider` and `sender.role`.
+- `claims/{claimId}` stores AI-proposed falsifiable claims. Claims begin as `unverified` even when an AI labels its reasoning as supported; epistemic promotion remains evidence/experiment-driven.
+- `claims/{claimId}.challenges[]` stores adversarial challenges. A substantive persisted challenge moves the claim to `disputed` until reconciliation.
+- `experiments/{experimentId}` stores recommended experiments as `draft` with `outcome: not_run`.
+
+The persistence endpoint is `/api/ai/independent-panel` and the adversarial endpoint is `/api/ai/adversarial-review`. Both require Firebase authentication and verify organization ownership server-side.
+
+Panel/review IDs are used to make generated document IDs deterministic for retries within the same run. No provider API key is persisted in Firestore.
