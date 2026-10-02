@@ -132,12 +132,13 @@ epistemicRouter.post('/reconcile', async (req, res) => {
       const unresolved = reconciledClaims.filter((claim) =>
         claim.status === 'unverified' || claim.status === 'unknown' || claim.status === 'disputed'
       );
+      const disproved = reconciledClaims.filter((claim) => claim.status === 'disproved');
       const hasRunnableExperiment = experiments.some((experiment) =>
         experiment.outcome === 'not_run' && (experiment.status === 'draft' || experiment.status === 'ready')
       );
 
       const recommendedPhase: Investigation['phase'] =
-        claims.length > 0 && unresolved.length === 0
+        claims.length > 0 && unresolved.length === 0 && disproved.length === 0
           ? 'decision'
           : hasRunnableExperiment
             ? 'experiment'
