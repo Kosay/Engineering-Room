@@ -100,6 +100,61 @@ export class InvestigationOrchestrator {
   }
 
   /**
+   * Runs the independent panel from authoritative Firestore state and persists
+   * completed results into the canonical investigation subcollections.
+   */
+  public static async runAndPersistIndependentPanel(
+    orgId: string,
+    roomId: string,
+    investigationId: string,
+    providerIds?: AIProviderId[]
+  ): Promise<AgentPanelResult[]> {
+    const user = (await import('../lib/firebase')).getFirebaseAuth().currentUser;
+    if (!user) throw new Error('Authentication is required for an independent panel.');
+    const panelRunId = `panel-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const response = await fetch('/api/ai/independent-panel', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${await user.getIdToken()}`,
+      },
+      body: JSON.stringify({ orgId, roomId, invId: investigationId, providerIds, panelRunId }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok && !Array.isArray(payload.results)) {
+      throw new Error(payload.error || 'Independent panel failed.');
+    }
+    return payload.results || [];
+  }
+
+  /**
+   * Runs adversarial review against the persisted investigation state.
+   */
+  public static async runAdversarialReview(
+    orgId: string,
+    roomId: string,
+    investigationId: string,
+    providerIds?: AIProviderId[]
+  ): Promise<AgentPanelResult[]> {
+    const user = (await import('../lib/firebase')).getFirebaseAuth().currentUser;
+    if (!user) throw new Error('Authentication is required for adversarial review.');
+    const reviewRunId = `review-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const response = await fetch('/api/ai/adversarial-review', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${await user.getIdToken()}`,
+      },
+      body: JSON.stringify({ orgId, roomId, invId: investigationId, providerIds, reviewRunId }),
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok && !Array.isArray(payload.results)) {
+      throw new Error(payload.error || 'Adversarial review failed.');
+    }
+    return payload.results || [];
+  }
+
+  /**
    * Reconciles all claims against attached evidence and test results.
    */
   public static reconcileClaims(
