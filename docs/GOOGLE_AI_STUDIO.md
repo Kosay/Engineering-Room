@@ -45,3 +45,16 @@ If a structural Firestore change is proposed, STOP. Explain the reason, affected
 
 ## AI Studio continuity
 Read this file and docs/FIRESTORE_SCHEMA.md before every substantial task. Keep changes incremental and preserve existing working behavior.
+## AI provider gateway
+
+All provider API calls are server-side. The browser sends an authenticated Firebase ID token to `/api/ai/analyze` with a `providerId` and structured investigation context.
+
+Supported provider IDs:
+- `gemini` → `GEMINI_API_KEY`
+- `openai` → `OPENAI_API_KEY` (optional `OPENAI_MODEL`)
+- `anthropic` → `ANTHROPIC_API_KEY` (optional `ANTHROPIC_MODEL`)
+- `deepseek` → `DEEPSEEK_API_KEY` (optional `DEEPSEEK_MODEL`)
+
+A missing provider key is an explicit provider failure, not a fake successful result. The independent panel preserves these failures so the investigation can distinguish unavailable agents from completed analyses.
+
+Do not move these credentials into `VITE_*` variables, browser localStorage, Firestore, or committed source files.
