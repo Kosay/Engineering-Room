@@ -1,51 +1,39 @@
-/**
- * OpenAI Provider Implementation (Architecture Ready)
- * Configured for future multi-agent debate (e.g. GPT-4o Architect/Reviewer)
- */
-
 import { AgentRole, AIProviderId } from '../types';
-import {
-  AIProvider,
-  ClaimDraft,
-  ExperimentSuggestion,
-  InvestigationContext,
-  ProviderAnalysisResult,
-} from './ai-provider.interface';
+import { getFirebaseAuth } from '../lib/firebase';
+import { AIProvider, ClaimDraft, InvestigationContext, ProviderAnalysisResult } from './ai-provider.interface';
+
+async function callGateway(context: InvestigationContext, role: AgentRole): Promise<ProviderAnalysisResult> {
+  const user = getFirebaseAuth().currentUser;
+  if (!user) throw new Error('Authentication is required for AI provider requests.');
+  const response = await fetch('/api/ai/analyze', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      Authorization: `Bearer ${await user.getIdToken()}`,
+    },
+    body: JSON.stringify({ providerId: 'openai', role, context }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || 'OpenAI provider request failed.');
+  return data as ProviderAnalysisResult;
+}
 
 export class OpenAIProvider implements AIProvider {
   readonly id: AIProviderId = 'openai';
-  readonly name = 'OpenAI (GPT-4o)';
-  readonly supportedRoles: AgentRole[] = [
-    'Architect',
-    'Adversarial Reviewer',
-    'Independent Analyst',
-  ];
-  readonly isConnected = false; // Flagged as pending user API key integration
+  readonly name = 'OpenAI';
+  readonly supportedRoles: AgentRole[] = ['Architect', 'Adversarial Reviewer', 'Independent Analyst'];
+  readonly isConnected = true;
 
-  async analyzeInvestigation(
-    context: InvestigationContext,
-    role: AgentRole = 'Independent Analyst'
-  ): Promise<ProviderAnalysisResult> {
-    throw new Error(
-      'OpenAI provider is not yet activated. Provide an OPENAI_API_KEY to activate this provider.'
-    );
+  async analyzeInvestigation(context: InvestigationContext, role: AgentRole = 'Independent Analyst') {
+    return callGateway(context, role);
   }
 
-  async challengeClaim(
-    claimStatement: string,
-    context: InvestigationContext,
-    role: AgentRole = 'Adversarial Reviewer'
-  ): Promise<{
-    challengeText: string;
-    proposingCounterClaims: ClaimDraft[];
-  }> {
-    throw new Error('OpenAI provider is not yet activated.');
+  async challengeClaim(_claimStatement: string, context: InvestigationContext, role: AgentRole = 'Adversarial Reviewer') {
+    const result = await callGateway(context, role);
+    return { challengeText: result.analysisText, proposingCounterClaims: result.proposedClaims };
   }
 
-  async suggestExperiments(
-    claimStatement: string,
-    context: InvestigationContext
-  ): Promise<ExperimentSuggestion[]> {
-    throw new Error('OpenAI provider is not yet activated.');
+  async suggestExperiments(_claimStatement: string, context: InvestigationContext) {
+    return (await callGateway(context, 'Experiment Agent')).recommendedExperiments;
   }
 }
