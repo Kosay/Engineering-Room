@@ -1,10 +1,16 @@
 import { AgentRole, AIProviderId } from '../types';
+import { getFirebaseAuth } from '../lib/firebase';
 import { AIProvider, ClaimDraft, InvestigationContext, ProviderAnalysisResult } from './ai-provider.interface';
 
 async function callGateway(context: InvestigationContext, role: AgentRole): Promise<ProviderAnalysisResult> {
+  const user = getFirebaseAuth().currentUser;
+  if (!user) throw new Error('Authentication is required for AI provider requests.');
   const response = await fetch('/api/ai/analyze', {
     method: 'POST',
-    headers: { 'content-type': 'application/json' },
+    headers: {
+      'content-type': 'application/json',
+      Authorization: `Bearer ${await user.getIdToken()}`,
+    },
     body: JSON.stringify({ providerId: 'openai', role, context }),
   });
   const data = await response.json();
@@ -12,11 +18,10 @@ async function callGateway(context: InvestigationContext, role: AgentRole): Prom
   return data as ProviderAnalysisResult;
 }
 
-export class OpenaiProvider implements AIProvider {
+export class OpenAIProvider implements AIProvider {
   readonly id: AIProviderId = 'openai';
   readonly name = 'OpenAI';
   readonly supportedRoles: AgentRole[] = ['Architect', 'Adversarial Reviewer', 'Independent Analyst'];
-  // The adapter is available. Credential availability is checked server-side per request.
   readonly isConnected = true;
 
   async analyzeInvestigation(context: InvestigationContext, role: AgentRole = 'Independent Analyst') {
