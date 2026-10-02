@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { FieldValue } from 'firebase-admin/firestore';
+import { FieldValue, type DocumentReference } from 'firebase-admin/firestore';
 import { requireFirebaseUser } from './auth';
 import { getAdminDb } from './firebase-admin';
 import { runProviderAnalysis } from './ai-provider-gateway';
@@ -142,13 +142,16 @@ aiRouter.post('/independent-panel', async (req: Request, res: Response) => {
 
     const db = state.db;
     const batch = db.batch();
-    const claimRefs = new Map<string, FirebaseFirestore.DocumentReference>();
-    const claimData = new Map<string, any>();
+    const claimRefs = new Map<string, DocumentReference>();
+    const claimData = new Map<string, Claim>();
+    const claimUpdates = new Map<string, { ref: DocumentReference; challenges: any[]; experimentIds: string[] }>();
 
     // Existing claims are authoritative candidates for challenge matching.
     for (const claim of built.claims) {
-      claimRefs.set(claim.statement.trim().toLowerCase(), state.invRef.collection('claims').doc(claim.id));
-      claimData.set(claim.statement.trim().toLowerCase(), claim);
+      const key = claim.statement.trim().toLowerCase();
+      const ref = state.invRef.collection('claims').doc(claim.id);
+      claimRefs.set(key, ref);
+      claimData.set(key, claim);
     }
 
     const now = new Date().toISOString();
@@ -182,13 +185,14 @@ aiRouter.post('/independent-panel', async (req: Request, res: Response) => {
         if (!claimRef) {
           claimRef = state.invRef.collection('claims').doc(stableId('claim', key));
           claimRefs.set(key, claimRef);
+
           const claim: Claim = {
             id: claimRef.id,
             organizationId: orgId,
             roomId,
             investigationId: invId,
             statement: draft.statement.trim(),
-            status: draft.initialStatus === 'supported' ? 'supported' : 'unverified',
+            status: 'unverified',
             importance: draft.importance,
             createdBy: {
               id: `agent-${item.providerId}`,
@@ -220,18 +224,16 @@ aiRouter.post('/independent-panel', async (req: Request, res: Response) => {
         const key = challenge.targetClaimStatement.trim().toLowerCase();
         const claimRef = claimRefs.get(key);
         if (!claimRef) continue;
-        const challengeId = stableId('ch', `${panelRunId}:${item.providerId}:${key}`);
-        batch.update(claimRef, {
-          challenges: FieldValue.arrayUnion({
-            id: challengeId,
-            challenger: item.providerId,
-            role: item.role,
-            challenge: challenge.challenge,
-            timestamp: now,
-          }),
-          status: 'disputed',
-          updatedAt: now,
+
+        const current = claimUpdates.get(claimRef.path) || { ref: claimRef, challenges: [], experimentIds: [] };
+        current.challenges.push({
+          id: stableId('ch', `${panelRunId}:${item.providerId}:${key}`),
+          challenger: item.providerId,
+          role: item.role,
+          challenge: challenge.challenge,
+          timestamp: now,
         });
+        claimUpdates.set(claimRef.path, current);
       }
 
       for (const suggestion of result.recommendedExperiments) {
@@ -257,13 +259,25 @@ aiRouter.post('/independent-panel', async (req: Request, res: Response) => {
           updatedAt: now,
         };
         batch.set(expRef, experiment, { merge: false });
+
         if (relatedClaim) {
-          batch.update(relatedClaim, {
-            relatedExperimentIds: FieldValue.arrayUnion(expId),
-            updatedAt: now,
-          });
+          const current = claimUpdates.get(relatedClaim.path) || { ref: relatedClaim, challenges: [], experimentIds: [] };
+          current.experimentIds.push(expId);
+          claimUpdates.set(relatedClaim.path, current);
         }
       }
+    }
+
+    for (const update of claimUpdates.values()) {
+      const data: Record<string, unknown> = { updatedAt: now };
+      if (update.challenges.length) {
+        data.challenges = FieldValue.arrayUnion(...update.challenges);
+        data.status = 'disputed';
+      }
+      if (update.experimentIds.length) {
+        data.relatedExperimentIds = FieldValue.arrayUnion(...update.experimentIds);
+      }
+      batch.update(update.ref, data);
     }
 
     batch.update(state.invRef, {
