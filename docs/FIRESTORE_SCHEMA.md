@@ -195,3 +195,22 @@ Completed agent output is persisted using the canonical investigation collection
 The persistence endpoint is `/api/ai/independent-panel` and the adversarial endpoint is `/api/ai/adversarial-review`. Both require Firebase authentication and verify organization ownership server-side.
 
 Panel/review IDs are used to make generated document IDs deterministic for retries within the same run. No provider API key is persisted in Firestore.
+
+
+## Reconciliation Engine
+
+The trusted reconciliation endpoint is `POST /api/epistemic/reconcile`.
+
+It:
+- reads the authoritative investigation, claims, evidence, and experiments from Firestore;
+- evaluates every claim with `ClaimManager.evaluateStatus`;
+- writes derived claim status/rationale through the Admin SDK;
+- never accepts an AI-provided epistemic status as authoritative;
+- persists a deterministic `messages/reconcile-{runId}` system message;
+- when the investigation is currently in `reconciliation`, recommends and applies the next lifecycle phase:
+  - `decision` when claims are resolved;
+  - `experiment` when unresolved claims have runnable draft/ready experiments;
+  - otherwise `evidence`;
+- leaves investigations in other phases unchanged.
+
+The single-claim endpoint remains available at `POST /api/epistemic/reconcile-claim`. It now returns both `status` and `recommendedStatus` for client compatibility.
