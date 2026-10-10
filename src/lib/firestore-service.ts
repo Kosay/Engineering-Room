@@ -409,9 +409,48 @@ export class FirestoreService {
       if (!response.ok) {
         throw new Error(payload.error || `Claim reconciliation failed with status ${response.status}`);
       }
-      return payload.recommendedStatus as Claim['status'];
+      return payload.status as Claim['status'];
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, claimPath);
+      throw err;
+    }
+  }
+
+  public static async reconcileInvestigation(
+    orgId: string,
+    roomId: string,
+    invId: string,
+    runId: string
+  ): Promise<{
+    runId: string;
+    changes: Array<{ claimId: string; oldStatus: Claim['status']; newStatus: Claim['status']; rationale: string }>;
+    nextPhase: Investigation['phase'];
+    phaseChanged: boolean;
+  }> {
+    const user = getFirebaseAuth().currentUser;
+    if (!user) throw new Error('Authentication is required to reconcile an investigation.');
+
+    try {
+      const idToken = await user.getIdToken();
+      const response = await fetch('/api/epistemic/reconcile', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + idToken,
+        },
+        body: JSON.stringify({ orgId, roomId, invId, runId }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(payload.error || 'Investigation reconciliation failed.');
+      }
+      return payload;
+    } catch (err) {
+      handleFirestoreError(
+        err,
+        OperationType.UPDATE,
+        'organizations/' + orgId + '/rooms/' + roomId + '/investigations/' + invId
+      );
       throw err;
     }
   }
